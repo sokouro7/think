@@ -76,6 +76,7 @@
     gap:8px;
   }
   .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .side-actions{display:flex;align-items:center;gap:6px}
   .new-btn{
     width:32px;height:32px;border-radius:9px;
     background:var(--accent);color:#fff;
@@ -85,6 +86,12 @@
   }
   .new-btn:hover{filter:brightness(1.08)}
   .new-btn:active{transform:scale(.92)}
+  .new-btn.ghost{
+    background:transparent;color:var(--muted);
+    border:1px solid var(--line);
+  }
+  .new-btn.ghost:hover{color:var(--accent);border-color:var(--accent);filter:none}
+  .new-btn.ghost svg{width:17px;height:17px}
 
   .search{
     margin:0 14px 10px;
@@ -127,21 +134,82 @@
     font-family:var(--mono);font-size:10.5px;color:var(--faint);
     margin-top:5px;letter-spacing:.02em;
   }
-  .del-btn{
+  .n-title{padding-right:44px !important}
+  .n-actions{
     position:absolute;top:9px;right:8px;
+    display:flex;gap:2px;
+    opacity:0;transition:opacity .12s ease;
+  }
+  .note-item:hover .n-actions{opacity:1}
+  .mini{
     width:24px;height:24px;border-radius:7px;
     display:flex;align-items:center;justify-content:center;
-    opacity:0;transition:opacity .12s ease, background .12s ease;
-    color:var(--muted);
+    color:var(--muted);transition:background .12s ease, color .12s ease;
   }
-  .note-item:hover .del-btn{opacity:1}
-  .del-btn:hover{background:rgba(192,57,43,.12);color:var(--danger)}
-  .del-btn svg{width:14px;height:14px}
+  .mini svg{width:14px;height:14px}
+  .mini:hover{background:rgba(0,0,0,.07)}
+  html[data-theme="dark"] .mini:hover{background:rgba(255,255,255,.09)}
+  .del-btn:hover{background:rgba(192,57,43,.12)!important;color:var(--danger)}
 
   .empty-list{
     text-align:center;color:var(--faint);
     font-size:13px;padding:40px 20px;line-height:1.6;
   }
+
+  /* ---------- Folders ---------- */
+  .folder{margin-bottom:2px}
+  .folder.drop{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:12px}
+  .folder-head{
+    display:flex;align-items:center;gap:6px;
+    padding:8px 10px;border-radius:10px;
+    cursor:pointer;user-select:none;
+    transition:background .12s ease;
+  }
+  .folder-head:hover{background:rgba(0,0,0,.04)}
+  html[data-theme="dark"] .folder-head:hover{background:rgba(255,255,255,.05)}
+  .folder-head .chevron{width:13px;height:13px;color:var(--faint);flex-shrink:0;transition:transform .15s ease}
+  .folder.collapsed .chevron{transform:rotate(0)}
+  .folder:not(.collapsed) .chevron{transform:rotate(90deg)}
+  .folder-head .f-icon{width:15px;height:15px;color:var(--accent);flex-shrink:0}
+  .folder-head .f-name{
+    flex:1;font-weight:600;font-size:13.5px;letter-spacing:-.01em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .folder-head .f-count{
+    font-family:var(--mono);font-size:10.5px;color:var(--faint);
+    background:rgba(0,0,0,.05);border-radius:20px;padding:1px 7px;
+  }
+  html[data-theme="dark"] .folder-head .f-count{background:rgba(255,255,255,.07)}
+  .f-actions{display:none;gap:1px}
+  .folder-head:hover .f-actions{display:flex}
+  .folder-head:hover .f-count{display:none}
+  .f-actions .mini{width:22px;height:22px}
+  .f-add{font-size:17px;line-height:1}
+  .f-del:hover{color:var(--danger)}
+  .folder-notes{padding-left:14px;margin-bottom:4px}
+  .folder.collapsed .folder-notes{display:none}
+  .folder-empty{font-size:12px;color:var(--faint);padding:6px 12px}
+  .loose-notes{margin-top:4px}
+
+  /* menu déplacer */
+  .move-menu{
+    position:fixed;z-index:100;min-width:190px;
+    background:var(--card);border:1px solid var(--line);
+    border-radius:12px;box-shadow:var(--shadow);
+    padding:6px;
+  }
+  .move-opt{
+    display:block;width:100%;text-align:left;
+    padding:8px 10px;border-radius:8px;
+    font-family:var(--ui);font-size:13px;color:var(--ink);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    transition:background .1s ease;
+  }
+  .move-opt:hover{background:rgba(0,0,0,.05)}
+  html[data-theme="dark"] .move-opt:hover{background:rgba(255,255,255,.06)}
+  .move-opt.on{color:var(--accent);font-weight:600}
+  .move-opt.new{color:var(--accent)}
+  .move-sep{height:1px;background:var(--line);margin:5px 4px}
 
   /* ---------- Main ---------- */
   .main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
@@ -352,7 +420,12 @@
   <aside class="sidebar">
     <div class="side-head">
       <div class="brand"><span class="dot"></span>Think</div>
-      <button class="new-btn" id="newBtn" title="Nouvelle note (Ctrl/Cmd+N)">+</button>
+      <div class="side-actions">
+        <button class="new-btn ghost" id="newFolderBtn" title="Nouveau dossier">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v4M10 13h4"/></svg>
+        </button>
+        <button class="new-btn" id="newBtn" title="Nouvelle note (Ctrl/Cmd+N)">+</button>
+      </div>
     </div>
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -428,6 +501,7 @@
 (function(){
   "use strict";
   const KEY = "notes.app.v1";
+  const FKEY = "notes.app.folders.v1";
   const THEME_KEY = "notes.app.theme";
   const els = {
     list: document.getElementById("noteList"),
@@ -441,6 +515,7 @@
   };
 
   let notes = load();
+  let folders = loadFolders();
   let currentId = null;
   let saveTimer = null;
   let activeEditor = null;
@@ -460,12 +535,20 @@
       }
       if(!Array.isArray(n.blocks)) n.blocks = [];
       if(n.mode !== "board") n.mode = "doc";
+      if(n.folderId === undefined) n.folderId = null;
       delete n.cols; delete n.ratio; delete n.html;
     });
     return arr;
   }
+  function loadFolders(){
+    try{ const d = JSON.parse(localStorage.getItem(FKEY)); return Array.isArray(d) ? d : []; }
+    catch(e){ return []; }
+  }
   function persist(){
     try{ localStorage.setItem(KEY, JSON.stringify(notes)); }catch(e){}
+  }
+  function persistFolders(){
+    try{ localStorage.setItem(FKEY, JSON.stringify(folders)); }catch(e){}
   }
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
@@ -502,39 +585,197 @@
     return rest || "Vide";
   }
 
+  function buildNoteItem(note){
+    const item = document.createElement("div");
+    item.className = "note-item" + (note.id===currentId ? " active" : "");
+    item.innerHTML =
+      '<div class="n-title"></div>'+
+      '<div class="n-snip"></div>'+
+      '<div class="n-date"></div>'+
+      '<div class="n-actions">'+
+        '<button class="mini move-btn" title="Déplacer vers un dossier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>'+
+        '<button class="mini del-btn" title="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>'+
+      '</div>';
+    item.querySelector(".n-title").textContent = titleOf(note);
+    item.querySelector(".n-snip").textContent = snippetOf(note);
+    item.querySelector(".n-date").textContent = fmtDate(note.updated);
+    item.addEventListener("click", ()=>openNote(note.id));
+    item.querySelector(".del-btn").addEventListener("click",(ev)=>{
+      ev.stopPropagation(); deleteNote(note.id);
+    });
+    item.querySelector(".move-btn").addEventListener("click",(ev)=>{
+      ev.stopPropagation(); openMoveMenu(ev.currentTarget, note);
+    });
+    item.draggable = true;
+    item.addEventListener("dragstart",(ev)=>{
+      ev.dataTransfer.setData("text/plain", note.id);
+      item.classList.add("dragging");
+    });
+    item.addEventListener("dragend",()=>item.classList.remove("dragging"));
+    return item;
+  }
+
   function renderList(){
     const q = els.search.value.trim().toLowerCase();
-    const sorted = [...notes].sort((a,b)=>b.updated-a.updated);
-    const filtered = q ? sorted.filter(n=>{
-      const div=document.createElement("div"); div.innerHTML=n.html||"";
-      return (div.textContent||"").toLowerCase().includes(q);
-    }) : sorted;
-
     els.list.innerHTML = "";
-    if(filtered.length === 0){
-      const e = document.createElement("div");
-      e.className = "empty-list";
-      e.textContent = q ? "Aucun résultat" : "Aucune note pour l'instant";
-      els.list.appendChild(e);
+    const matches = n => noteText(n).toLowerCase().includes(q);
+
+    // recherche: liste plate, on ignore les dossiers
+    if(q){
+      const found = [...notes].filter(matches).sort((a,b)=>b.updated-a.updated);
+      if(found.length===0){ emptyMsg("Aucun résultat"); return; }
+      found.forEach(n=>els.list.appendChild(buildNoteItem(n)));
       return;
     }
-    filtered.forEach(note=>{
-      const item = document.createElement("div");
-      item.className = "note-item" + (note.id===currentId ? " active" : "");
-      item.innerHTML =
-        '<div class="n-title"></div>'+
-        '<div class="n-snip"></div>'+
-        '<div class="n-date"></div>'+
-        '<button class="del-btn" title="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>';
-      item.querySelector(".n-title").textContent = titleOf(note);
-      item.querySelector(".n-snip").textContent = snippetOf(note);
-      item.querySelector(".n-date").textContent = fmtDate(note.updated);
-      item.addEventListener("click", ()=>openNote(note.id));
-      item.querySelector(".del-btn").addEventListener("click",(ev)=>{
-        ev.stopPropagation(); deleteNote(note.id);
-      });
-      els.list.appendChild(item);
+
+    if(notes.length===0 && folders.length===0){ emptyMsg("Aucune note pour l'instant"); return; }
+
+    // dossiers
+    folders.forEach(folder=>{
+      const inside = notes.filter(n=>n.folderId===folder.id).sort((a,b)=>b.updated-a.updated);
+      els.list.appendChild(buildFolder(folder, inside));
     });
+
+    // notes sans dossier
+    const loose = notes.filter(n=>!n.folderId || !folders.some(f=>f.id===n.folderId))
+                       .sort((a,b)=>b.updated-a.updated);
+    if(loose.length){
+      const wrap = document.createElement("div");
+      wrap.className = "loose-notes";
+      loose.forEach(n=>wrap.appendChild(buildNoteItem(n)));
+      els.list.appendChild(wrap);
+    }
+  }
+
+  function emptyMsg(txt){
+    const e = document.createElement("div");
+    e.className = "empty-list";
+    e.textContent = txt;
+    els.list.appendChild(e);
+  }
+
+  function buildFolder(folder, inside){
+    const wrap = document.createElement("div");
+    wrap.className = "folder" + (folder.collapsed ? " collapsed" : "");
+
+    const head = document.createElement("div");
+    head.className = "folder-head";
+    head.innerHTML =
+      '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>'+
+      '<svg class="f-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>'+
+      '<span class="f-name"></span>'+
+      '<span class="f-count">'+inside.length+'</span>'+
+      '<div class="f-actions">'+
+        '<button class="mini f-add" title="Nouvelle note dans ce dossier">+</button>'+
+        '<button class="mini f-rename" title="Renommer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>'+
+        '<button class="mini f-del" title="Supprimer le dossier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>'+
+      '</div>';
+    head.querySelector(".f-name").textContent = folder.name;
+
+    head.addEventListener("click",()=>{ folder.collapsed = !folder.collapsed; persistFolders(); renderList(); });
+    head.querySelector(".f-add").addEventListener("click",(e)=>{ e.stopPropagation(); newNote(folder.id); });
+    head.querySelector(".f-rename").addEventListener("click",(e)=>{ e.stopPropagation(); renameFolder(folder.id); });
+    head.querySelector(".f-del").addEventListener("click",(e)=>{ e.stopPropagation(); deleteFolder(folder.id); });
+
+    // drop d'une note dans le dossier
+    head.addEventListener("dragover",(e)=>{ e.preventDefault(); wrap.classList.add("drop"); });
+    head.addEventListener("dragleave",()=>wrap.classList.remove("drop"));
+    head.addEventListener("drop",(e)=>{
+      e.preventDefault(); wrap.classList.remove("drop");
+      const id = e.dataTransfer.getData("text/plain");
+      moveNote(id, folder.id);
+    });
+
+    wrap.appendChild(head);
+    const body = document.createElement("div");
+    body.className = "folder-notes";
+    if(inside.length){
+      inside.forEach(n=>body.appendChild(buildNoteItem(n)));
+    } else {
+      const e = document.createElement("div");
+      e.className = "folder-empty";
+      e.textContent = "Vide";
+      body.appendChild(e);
+    }
+    wrap.appendChild(body);
+    return wrap;
+  }
+
+  function createFolder(){
+    const name = prompt("Nom du dossier");
+    if(!name || !name.trim()) return;
+    folders.push({ id:uid(), name:name.trim(), collapsed:false });
+    persistFolders(); renderList();
+  }
+  function renameFolder(id){
+    const f = folders.find(x=>x.id===id);
+    if(!f) return;
+    const name = prompt("Renommer le dossier", f.name);
+    if(!name || !name.trim()) return;
+    f.name = name.trim(); persistFolders(); renderList();
+  }
+  function deleteFolder(id){
+    const f = folders.find(x=>x.id===id);
+    if(!f) return;
+    const count = notes.filter(n=>n.folderId===id).length;
+    const msg = count
+      ? "Supprimer le dossier \""+f.name+"\" ? Ses "+count+" note(s) seront déplacées hors dossier, pas supprimées."
+      : "Supprimer le dossier \""+f.name+"\" ?";
+    if(!confirm(msg)) return;
+    notes.forEach(n=>{ if(n.folderId===id) n.folderId=null; });
+    folders = folders.filter(x=>x.id!==id);
+    persist(); persistFolders(); renderList();
+  }
+  function moveNote(noteId, folderId){
+    const n = notes.find(x=>x.id===noteId);
+    if(!n) return;
+    n.folderId = folderId;
+    persist(); renderList();
+  }
+
+  // menu déplacer
+  function openMoveMenu(anchor, note){
+    closeMoveMenu();
+    const menu = document.createElement("div");
+    menu.className = "move-menu";
+    menu.id = "moveMenu";
+    const opts = [{id:null, name:"Hors dossier"}].concat(folders.map(f=>({id:f.id, name:f.name})));
+    opts.forEach(o=>{
+      const b = document.createElement("button");
+      b.className = "move-opt" + ((note.folderId||null)===(o.id||null) ? " on" : "");
+      b.textContent = o.name;
+      b.addEventListener("click",(e)=>{ e.stopPropagation(); moveNote(note.id, o.id); closeMoveMenu(); });
+      menu.appendChild(b);
+    });
+    const sep = document.createElement("div"); sep.className="move-sep"; menu.appendChild(sep);
+    const nf = document.createElement("button");
+    nf.className = "move-opt new"; nf.textContent = "Nouveau dossier...";
+    nf.addEventListener("click",(e)=>{
+      e.stopPropagation();
+      const name = prompt("Nom du dossier");
+      closeMoveMenu();
+      if(!name || !name.trim()) return;
+      const f = { id:uid(), name:name.trim(), collapsed:false };
+      folders.push(f); persistFolders();
+      moveNote(note.id, f.id);
+    });
+    menu.appendChild(nf);
+
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    menu.style.top = (r.bottom + 6) + "px";
+    let left = r.left;
+    if(left + 200 > window.innerWidth) left = window.innerWidth - 210;
+    menu.style.left = left + "px";
+    setTimeout(()=>document.addEventListener("mousedown", moveMenuOutside), 0);
+  }
+  function moveMenuOutside(e){
+    if(!e.target.closest("#moveMenu")) closeMoveMenu();
+  }
+  function closeMoveMenu(){
+    const m = document.getElementById("moveMenu");
+    if(m) m.remove();
+    document.removeEventListener("mousedown", moveMenuOutside);
   }
 
   function showEditor(show){
@@ -752,9 +993,10 @@
     }
   }
 
-  function newNote(){
-    const note = { id:uid(), doc:"", blocks:[], mode:"doc", created:Date.now(), updated:Date.now() };
+  function newNote(folderId){
+    const note = { id:uid(), doc:"", blocks:[], mode:"doc", folderId: folderId || null, created:Date.now(), updated:Date.now() };
     notes.push(note);
+    if(folderId){ const f = folders.find(x=>x.id===folderId); if(f) f.collapsed = false; persistFolders(); }
     persist();
     openNote(note.id);
   }
@@ -901,8 +1143,9 @@
   });
 
   // buttons
-  document.getElementById("newBtn").addEventListener("click", newNote);
-  document.getElementById("welcomeNew").addEventListener("click", newNote);
+  document.getElementById("newBtn").addEventListener("click", ()=>newNote());
+  document.getElementById("welcomeNew").addEventListener("click", ()=>newNote());
+  document.getElementById("newFolderBtn").addEventListener("click", createFolder);
   document.getElementById("toggleSide").addEventListener("click", ()=>document.body.classList.toggle("collapsed"));
   els.search.addEventListener("input", renderList);
 
