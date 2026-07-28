@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Think</title>
+<title>ThinkOS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -353,6 +353,23 @@
   .status .pip{width:6px;height:6px;border-radius:50%;background:#3ba55d;opacity:0;transition:opacity .3s}
   .status.saved .pip{opacity:1}
 
+  .sync-dot{
+    width:7px;height:7px;border-radius:50%;
+    margin-left:10px;flex-shrink:0;
+    background:var(--faint);
+    transition:background .3s ease, box-shadow .3s ease;
+  }
+  .sync-dot.local{background:var(--faint)}
+  .sync-dot.synced{background:#3ba55d}
+  .sync-dot.syncing{
+    background:#e0a02c;
+    animation:syncPulse 1s ease-in-out infinite;
+  }
+  @keyframes syncPulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(224,160,44,.5)}
+    50%{box-shadow:0 0 0 4px rgba(224,160,44,0)}
+  }
+
   .editor-wrap{flex:1;display:flex;overflow:hidden}
   .pane{flex:1;min-width:0;overflow-y:auto;display:flex;justify-content:center}
 
@@ -482,7 +499,7 @@
 
   <div class="auth-overlay" id="authOverlay" style="display:none">
     <div class="auth-card">
-      <div class="auth-brand"><span class="dot"></span>Think</div>
+      <div class="auth-brand"><span class="dot"></span>ThinkOS</div>
       <p class="auth-sub">Connecte-toi pour synchroniser tes notes sur tous tes appareils.</p>
       <input class="auth-input" id="authEmail" type="email" placeholder="ton@email.com" autocomplete="email">
       <button class="auth-btn" id="authSend">Recevoir le lien de connexion</button>
@@ -493,7 +510,7 @@
 
   <aside class="sidebar">
     <div class="side-head">
-      <div class="brand"><span class="dot"></span>Think</div>
+      <div class="brand"><span class="dot"></span>ThinkOS</div>
       <div class="side-actions">
         <button class="new-btn ghost" id="newFolderBtn" title="Nouveau dossier">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v4M10 13h4"/></svg>
@@ -557,6 +574,7 @@
       </button>
       <div class="spacer"></div>
       <div class="status" id="status"><span class="pip"></span><span id="statusText"></span></div>
+      <span class="sync-dot local" id="syncDot" title="Local uniquement"></span>
       <div class="divider"></div>
       <button class="tb-toggle" id="themeBtn" title="Clair / sombre">
         <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -1303,11 +1321,20 @@
     try{ await sb.from(table).delete().eq("id", id); }catch(e){}
   }
 
-  function setSync(on){ /* réservé pour un futur indicateur visuel */ }
+  const syncDot = document.getElementById("syncDot");
+  function setSyncState(state){
+    // state: "local" | "syncing" | "synced"
+    syncDot.className = "sync-dot " + state;
+    syncDot.title = state==="synced" ? "Synchronisé"
+                  : state==="syncing" ? "Synchronisation..."
+                  : "Local uniquement";
+  }
+  function setSync(on){ setSyncState(on ? "syncing" : "synced"); }
 
   async function pullAndMerge(){
     if(!sb || !session) return;
     syncing = true;
+    setSyncState("syncing");
     try{
       const [{data:cf}, {data:cn}] = await Promise.all([
         sb.from("folders").select("*"),
@@ -1336,6 +1363,7 @@
       }
     }catch(e){}
     syncing = false;
+    setSyncState("synced");
     // renvoie les éléments locaux non encore en cloud
     pushAll();
   }
@@ -1362,6 +1390,7 @@
     try{ await sb.auth.signOut(); }catch(e){}
     session = null;
     renderAccount();
+    setSyncState("local");
     authOverlay.style.display = "flex";
   }
 
@@ -1384,9 +1413,9 @@
   }
 
   function initCloud(){
-    if(!window.supabase){ renderAccount(); return; }
+    if(!window.supabase){ renderAccount(); setSyncState("local"); return; }
     try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }
-    catch(e){ renderAccount(); return; }
+    catch(e){ renderAccount(); setSyncState("local"); return; }
 
     authSend.addEventListener("click", sendMagicLink);
     authEmail.addEventListener("keydown",(e)=>{ if(e.key==="Enter") sendMagicLink(); });
@@ -1396,7 +1425,7 @@
       session = data.session;
       renderAccount();
       if(session){ authOverlay.style.display="none"; pullAndMerge(); }
-      else { authOverlay.style.display="flex"; }
+      else { authOverlay.style.display="flex"; setSyncState("local"); }
     });
 
     sb.auth.onAuthStateChange((event, s)=>{
