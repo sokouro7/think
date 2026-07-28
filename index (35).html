@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Think</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FBFAF8;
+    --sidebar:#F2F0EC;
+    --card:#FFFFFF;
+    --ink:#1C1B19;
+    --muted:#8A857D;
+    --faint:#B8B3AA;
+    --accent:#4F46E5;
+    --accent-soft:#ECEBFB;
+    --line:#E6E3DD;
+    --danger:#C0392B;
+    --shadow:0 1px 2px rgba(28,27,25,.04), 0 8px 24px rgba(28,27,25,.06);
+    --ui:'Space Grotesk',system-ui,sans-serif;
+    --serif:'Source Serif 4',Georgia,serif;
+    --mono:'JetBrains Mono',monospace;
+  }
+  html[data-theme="dark"]{
+    --bg:#17171A;
+    --sidebar:#1E1E22;
+    --card:#232329;
+    --ink:#E9E7E2;
+    --muted:#928E88;
+    --faint:#5C5A56;
+    --accent:#8983F7;
+    --accent-soft:#2A2940;
+    --line:#2E2E34;
+    --danger:#E06B5E;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--ui);
+    background:var(--bg);
+    color:var(--ink);
+    display:flex;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:270px;
+    flex-shrink:0;
+    background:var(--sidebar);
+    border-right:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    transition:margin-left .28s cubic-bezier(.4,0,.2,1);
+  }
+  body.collapsed .sidebar{margin-left:-271px}
+
+  .side-head{
+    padding:20px 18px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .brand{
+    font-weight:700;
+    font-size:17px;
+    letter-spacing:-.02em;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .new-btn{
+    width:32px;height:32px;border-radius:9px;
+    background:var(--accent);color:#fff;
+    font-size:20px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .12s ease, filter .12s ease;
+  }
+  .new-btn:hover{filter:brightness(1.08)}
+  .new-btn:active{transform:scale(.92)}
+
+  .search{
+    margin:0 14px 10px;
+    display:flex;align-items:center;gap:8px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:8px 11px;
+  }
+  .search svg{width:15px;height:15px;stroke:var(--faint);flex-shrink:0}
+  .search input{
+    border:none;background:none;outline:none;
+    font-family:var(--ui);font-size:13.5px;color:var(--ink);
+    width:100%;
+  }
+  .search input::placeholder{color:var(--faint)}
+
+  .note-list{flex:1;overflow-y:auto;padding:4px 10px 14px}
+  .note-item{
+    padding:11px 12px;
+    border-radius:11px;
+    margin-bottom:3px;
+    position:relative;
+    transition:background .12s ease;
+  }
+  .note-item:hover{background:rgba(0,0,0,.035)}
+  html[data-theme="dark"] .note-item:hover{background:rgba(255,255,255,.04)}
+  .note-item.active{background:var(--card);box-shadow:var(--shadow)}
+  .note-item .n-title{
+    font-weight:600;font-size:14px;letter-spacing:-.01em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    padding-right:20px;
+  }
+  .note-item .n-snip{
+    font-size:12.5px;color:var(--muted);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    margin-top:2px;
+  }
+  .note-item .n-date{
+    font-family:var(--mono);font-size:10.5px;color:var(--faint);
+    margin-top:5px;letter-spacing:.02em;
+  }
+  .del-btn{
+    position:absolute;top:9px;right:8px;
+    width:24px;height:24px;border-radius:7px;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:opacity .12s ease, background .12s ease;
+    color:var(--muted);
+  }
+  .note-item:hover .del-btn{opacity:1}
+  .del-btn:hover{background:rgba(192,57,43,.12);color:var(--danger)}
+  .del-btn svg{width:14px;height:14px}
+
+  .empty-list{
+    text-align:center;color:var(--faint);
+    font-size:13px;padding:40px 20px;line-height:1.6;
+  }
+
+  /* ---------- Main ---------- */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+
+  .toolbar{
+    height:54px;flex-shrink:0;
+    display:flex;align-items:center;gap:4px;
+    padding:0 16px;
+    border-bottom:1px solid var(--line);
+    background:color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter:blur(8px);
+  }
+  .tb-toggle{
+    width:34px;height:34px;border-radius:9px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted);transition:background .12s;
+  }
+  .tb-toggle:hover{background:rgba(0,0,0,.05)}
+  html[data-theme="dark"] .tb-toggle:hover{background:rgba(255,255,255,.06)}
+  .tb-toggle svg{width:18px;height:18px}
+
+  .tb-group{display:flex;align-items:center;gap:2px}
+  .divider{width:1px;height:22px;background:var(--line);margin:0 8px}
+  .fmt{
+    height:34px;min-width:34px;padding:0 9px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--ink);font-size:14px;
+    transition:background .12s ease, color .12s ease;
+  }
+  .fmt:hover{background:rgba(0,0,0,.05)}
+  html[data-theme="dark"] .fmt:hover{background:rgba(255,255,255,.06)}
+  .fmt.on{background:var(--accent-soft);color:var(--accent)}
+  .fmt svg{width:17px;height:17px}
+  .fmt b{font-weight:700}
+  .fmt i{font-style:italic;font-family:var(--serif)}
+
+  /* highlight palette */
+  .hl-wrap{position:relative}
+  .hl-swatch{
+    position:absolute;bottom:6px;left:50%;transform:translateX(-50%);
+    width:16px;height:3px;border-radius:2px;background:#FFE27A;
+    pointer-events:none;
+  }
+  .palette{
+    position:absolute;top:44px;left:50%;transform:translateX(-50%) translateY(-6px);
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:13px;
+    box-shadow:var(--shadow);
+    padding:10px;
+    display:none;
+    grid-template-columns:repeat(4,1fr);
+    gap:7px;
+    z-index:30;
+    opacity:0;transition:opacity .14s ease, transform .14s ease;
+  }
+  .palette.open{display:grid;opacity:1;transform:translateX(-50%) translateY(0)}
+  .swatch{
+    width:26px;height:26px;border-radius:8px;
+    border:1px solid rgba(0,0,0,.08);
+    transition:transform .1s ease;
+  }
+  html[data-theme="dark"] .swatch{border-color:rgba(255,255,255,.12)}
+  .swatch:hover{transform:scale(1.12)}
+  .swatch.clear{
+    display:flex;align-items:center;justify-content:center;
+    background:transparent;color:var(--muted);
+  }
+  .swatch.clear svg{width:15px;height:15px}
+  .editor mark{border-radius:3px;padding:.02em .12em}
+
+  .spacer{flex:1}
+  .status{
+    font-family:var(--mono);font-size:11px;color:var(--faint);
+    display:flex;align-items:center;gap:6px;
+    letter-spacing:.02em;
+  }
+  .status .pip{width:6px;height:6px;border-radius:50%;background:#3ba55d;opacity:0;transition:opacity .3s}
+  .status.saved .pip{opacity:1}
+
+  .editor-wrap{flex:1;display:flex;overflow:hidden}
+  .pane{flex:1;min-width:0;overflow-y:auto;display:flex;justify-content:center}
+
+  /* mode tableau */
+  .editor-wrap.board{display:block;overflow:auto;background:
+    radial-gradient(circle, var(--line) 1px, transparent 1px);
+    background-size:26px 26px;
+  }
+  .canvas{position:relative;width:3000px;height:2200px;cursor:text}
+  .canvas-hint{
+    position:absolute;top:26px;left:26px;
+    font-family:var(--ui);font-size:13.5px;color:var(--faint);
+    pointer-events:none;user-select:none;
+  }
+  .block{
+    position:absolute;
+    background:var(--card);
+    border:1px solid transparent;
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    padding:4px;
+    transition:border-color .12s ease, box-shadow .12s ease;
+  }
+  .block:hover{border-color:var(--line)}
+  .block:focus-within{border-color:var(--accent)}
+  .block .editor{
+    width:100%;max-width:none;
+    padding:10px 12px;
+    font-size:16px;line-height:1.6;
+    min-height:1.6em;
+  }
+  .block .editor h2{font-size:21px;margin:.5em 0 .3em}
+  .block .editor h3{font-size:17px;margin:.5em 0 .3em}
+  .block-grip{
+    position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+    width:34px;height:18px;border-radius:6px;
+    background:var(--card);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    cursor:grab;opacity:0;transition:opacity .12s ease;
+    color:var(--faint);touch-action:none;
+  }
+  .block-grip svg{width:18px;height:10px}
+  .block-grip:active{cursor:grabbing}
+  .block:hover .block-grip,.block:focus-within .block-grip{opacity:1}
+  .block-del{
+    position:absolute;top:-10px;right:-10px;
+    width:22px;height:22px;border-radius:50%;
+    background:var(--card);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted);opacity:0;transition:opacity .12s ease, background .12s;
+  }
+  .block-del svg{width:12px;height:12px}
+  .block-del:hover{background:rgba(192,57,43,.12);color:var(--danger)}
+  .block:hover .block-del,.block:focus-within .block-del{opacity:1}
+  .block-resize{
+    position:absolute;right:-3px;bottom:8px;top:8px;width:7px;
+    cursor:ew-resize;touch-action:none;
+  }
+  .block.dragging{box-shadow:0 12px 30px rgba(0,0,0,.16);border-color:var(--accent)}
+
+  #boardBtn.on{background:var(--accent-soft);color:var(--accent)}
+  .editor{
+    width:100%;max-width:720px;
+    padding:56px 40px 200px;
+    font-family:var(--serif);
+    font-size:19px;line-height:1.72;
+    color:var(--ink);
+    outline:none;
+    letter-spacing:.003em;
+  }
+  .editor:empty:before{
+    content:attr(data-placeholder);
+    color:var(--faint);
+    pointer-events:none;
+  }
+  .editor h2{
+    font-family:var(--ui);font-weight:700;
+    font-size:26px;line-height:1.25;letter-spacing:-.02em;
+    margin:1.4em 0 .5em;
+  }
+  .editor h3{
+    font-family:var(--ui);font-weight:600;
+    font-size:20px;letter-spacing:-.01em;
+    margin:1.3em 0 .4em;
+  }
+  .editor p{margin:0 0 .2em}
+  .editor ul,.editor ol{margin:.3em 0 .6em;padding-left:1.4em}
+  .editor li{margin:.15em 0}
+  .editor a{color:var(--accent)}
+  .editor blockquote{
+    border-left:3px solid var(--accent);
+    padding-left:16px;margin:.8em 0;color:var(--muted);font-style:italic;
+  }
+  .editor:focus{outline:none}
+
+  /* welcome / no note */
+  .welcome{
+    flex:1;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    color:var(--faint);gap:14px;padding:40px;text-align:center;
+  }
+  .welcome svg{width:44px;height:44px;stroke:var(--faint);stroke-width:1.4}
+  .welcome p{font-size:14.5px;line-height:1.6;max-width:280px}
+  .welcome button{
+    margin-top:6px;
+    background:var(--accent);color:#fff;
+    padding:10px 20px;border-radius:10px;font-weight:600;font-size:14px;
+    transition:filter .12s;
+  }
+  .welcome button:hover{filter:brightness(1.08)}
+
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--faint);border-radius:20px;border:3px solid var(--bg);opacity:.5}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  @media(max-width:640px){
+    .sidebar{position:absolute;z-index:20;height:100%;box-shadow:var(--shadow)}
+    body:not(.collapsed) .main:before{
+      content:"";position:absolute;inset:0;background:rgba(0,0,0,.25);z-index:10;
+    }
+    .editor{padding:32px 22px 200px;font-size:18px}
+    body{overflow:hidden}
+  }
+</style>
+</head>
+<body class="collapsed">
+
+  <aside class="sidebar">
+    <div class="side-head">
+      <div class="brand"><span class="dot"></span>Think</div>
+      <button class="new-btn" id="newBtn" title="Nouvelle note (Ctrl/Cmd+N)">+</button>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="text" placeholder="Rechercher">
+    </div>
+    <div class="note-list" id="noteList"></div>
+  </aside>
+
+  <main class="main">
+    <div class="toolbar">
+      <button class="tb-toggle" id="toggleSide" title="Afficher / masquer les notes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
+      <div class="divider"></div>
+      <div class="tb-group" id="fmtGroup">
+        <button class="fmt" data-cmd="bold" title="Gras (Ctrl/Cmd+B)"><b>B</b></button>
+        <button class="fmt" data-cmd="italic" title="Italique (Ctrl/Cmd+I)"><i>I</i></button>
+        <div class="divider"></div>
+        <button class="fmt" data-block="h2" title="Titre">H1</button>
+        <button class="fmt" data-block="h3" title="Sous-titre">H2</button>
+        <button class="fmt" data-block="blockquote" title="Citation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17h3l2-4V7H5v6h3zM14 17h3l2-4V7h-6v6h3z"/></svg>
+        </button>
+        <div class="divider"></div>
+        <button class="fmt" data-cmd="insertUnorderedList" title="Liste à puces">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        </button>
+        <button class="fmt" data-cmd="insertOrderedList" title="Liste numérotée">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 14H4l2 2.5V18H4"/></svg>
+        </button>
+        <div class="divider"></div>
+        <div class="hl-wrap">
+          <button class="fmt" id="hlBtn" title="Surligner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l-4 4v3h3l4-4M12.5 7.5l4 4M15 5l4 4-7 7-4-4z"/></svg>
+            <span class="hl-swatch" id="hlSwatch"></span>
+          </button>
+          <div class="palette" id="palette">
+            <button class="swatch" data-color="#FFE27A" style="background:#FFE27A" title="Jaune"></button>
+            <button class="swatch" data-color="#B9F6C4" style="background:#B9F6C4" title="Vert"></button>
+            <button class="swatch" data-color="#AEDDFF" style="background:#AEDDFF" title="Bleu"></button>
+            <button class="swatch" data-color="#FFC9D9" style="background:#FFC9D9" title="Rose"></button>
+            <button class="swatch" data-color="#E3C6FF" style="background:#E3C6FF" title="Violet"></button>
+            <button class="swatch" data-color="#FFD3A8" style="background:#FFD3A8" title="Orange"></button>
+            <button class="swatch" data-color="#D8E0EA" style="background:#D8E0EA" title="Gris"></button>
+            <button class="swatch clear" data-color="clear" title="Retirer le surlignage">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <button class="fmt" id="boardBtn" title="Mode tableau (poser du texte où tu veux)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="3" width="8" height="10" rx="1.5"/><rect x="3" y="11" width="8" height="10" rx="1.5"/><rect x="13" y="15" width="8" height="6" rx="1.5"/></svg>
+      </button>
+      <div class="spacer"></div>
+      <div class="status" id="status"><span class="pip"></span><span id="statusText"></span></div>
+      <div class="divider"></div>
+      <button class="tb-toggle" id="themeBtn" title="Clair / sombre">
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+
+    <div class="editor-wrap" id="editorWrap"></div>
+
+    <div class="welcome" id="welcome" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+      <p>Aucune note ouverte. Crée ta première note pour commencer à écrire.</p>
+      <button id="welcomeNew">Nouvelle note</button>
+    </div>
+  </main>
+
+<script>
+(function(){
+  "use strict";
+  const KEY = "notes.app.v1";
+  const THEME_KEY = "notes.app.theme";
+  const els = {
+    list: document.getElementById("noteList"),
+    editorWrap: document.getElementById("editorWrap"),
+    welcome: document.getElementById("welcome"),
+    search: document.getElementById("search"),
+    status: document.getElementById("status"),
+    statusText: document.getElementById("statusText"),
+    fmtGroup: document.getElementById("fmtGroup"),
+    themeIcon: document.getElementById("themeIcon"),
+  };
+
+  let notes = load();
+  let currentId = null;
+  let saveTimer = null;
+  let activeEditor = null;
+
+  function load(){
+    try{ const d = JSON.parse(localStorage.getItem(KEY)); return Array.isArray(d) ? migrate(d) : []; }
+    catch(e){ return []; }
+  }
+  function migrate(arr){
+    arr.forEach(n=>{
+      if(n.doc == null){
+        if(Array.isArray(n.cols)){
+          n.doc = (n.cols[0]||"") + (n.cols[1] ? n.cols[1] : "");
+        } else {
+          n.doc = n.html || "";
+        }
+      }
+      if(!Array.isArray(n.blocks)) n.blocks = [];
+      if(n.mode !== "board") n.mode = "doc";
+      delete n.cols; delete n.ratio; delete n.html;
+    });
+    return arr;
+  }
+  function persist(){
+    try{ localStorage.setItem(KEY, JSON.stringify(notes)); }catch(e){}
+  }
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+  function htmlToText(html){
+    const div = document.createElement("div");
+    div.innerHTML = html || "";
+    return div.textContent || "";
+  }
+  function noteText(note){
+    if(note.mode === "board"){
+      return note.blocks.map(b=>htmlToText(b.html)).join("\n");
+    }
+    return htmlToText(note.doc);
+  }
+
+  function fmtDate(ts){
+    const d = new Date(ts), n = new Date();
+    const sameDay = d.toDateString() === n.toDateString();
+    if(sameDay) return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+    const y = new Date(n); y.setDate(n.getDate()-1);
+    if(d.toDateString() === y.toDateString()) return "hier";
+    return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"});
+  }
+
+  function titleOf(note){
+    const txt = noteText(note).trim();
+    if(!txt) return "Sans titre";
+    return txt.split("\n")[0].slice(0,60);
+  }
+  function snippetOf(note){
+    const txt = noteText(note).replace(/\s+/g," ").trim();
+    const t = titleOf(note);
+    const rest = txt.slice(t.length).trim();
+    return rest || "Vide";
+  }
+
+  function renderList(){
+    const q = els.search.value.trim().toLowerCase();
+    const sorted = [...notes].sort((a,b)=>b.updated-a.updated);
+    const filtered = q ? sorted.filter(n=>{
+      const div=document.createElement("div"); div.innerHTML=n.html||"";
+      return (div.textContent||"").toLowerCase().includes(q);
+    }) : sorted;
+
+    els.list.innerHTML = "";
+    if(filtered.length === 0){
+      const e = document.createElement("div");
+      e.className = "empty-list";
+      e.textContent = q ? "Aucun résultat" : "Aucune note pour l'instant";
+      els.list.appendChild(e);
+      return;
+    }
+    filtered.forEach(note=>{
+      const item = document.createElement("div");
+      item.className = "note-item" + (note.id===currentId ? " active" : "");
+      item.innerHTML =
+        '<div class="n-title"></div>'+
+        '<div class="n-snip"></div>'+
+        '<div class="n-date"></div>'+
+        '<button class="del-btn" title="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>';
+      item.querySelector(".n-title").textContent = titleOf(note);
+      item.querySelector(".n-snip").textContent = snippetOf(note);
+      item.querySelector(".n-date").textContent = fmtDate(note.updated);
+      item.addEventListener("click", ()=>openNote(note.id));
+      item.querySelector(".del-btn").addEventListener("click",(ev)=>{
+        ev.stopPropagation(); deleteNote(note.id);
+      });
+      els.list.appendChild(item);
+    });
+  }
+
+  function showEditor(show){
+    els.editorWrap.style.display = show ? "flex" : "none";
+    els.welcome.style.display = show ? "none" : "flex";
+    document.querySelectorAll(".toolbar .fmt, #fmtGroup .divider").forEach(el=>{
+      el.style.visibility = show ? "visible" : "hidden";
+    });
+    if(!show){ els.editorWrap.innerHTML = ""; activeEditor = null; }
+  }
+
+  function attachEditorEvents(ed, onInput){
+    ed.addEventListener("input", onInput);
+    ed.addEventListener("paste",(e)=>{
+      e.preventDefault();
+      const text = (e.clipboardData||window.clipboardData).getData("text/plain");
+      document.execCommand("insertText", false, text);
+    });
+    ed.addEventListener("focus", ()=>{ activeEditor = ed; });
+  }
+
+  // ---------- DOC MODE ----------
+  function buildDoc(note){
+    const pane = document.createElement("div");
+    pane.className = "pane";
+    const ed = document.createElement("div");
+    ed.className = "editor";
+    ed.contentEditable = "true";
+    ed.spellcheck = true;
+    ed.setAttribute("data-placeholder", "Commence à écrire");
+    ed.innerHTML = note.doc || "";
+    attachEditorEvents(ed, ()=>{
+      note.doc = ed.innerHTML; touch(note);
+    });
+    pane.appendChild(ed);
+    els.editorWrap.appendChild(pane);
+    return ed;
+  }
+
+  // ---------- BOARD MODE (tableau libre) ----------
+  function buildBoard(note){
+    const canvas = document.createElement("div");
+    canvas.className = "canvas";
+    els.editorWrap.appendChild(canvas);
+
+    if(note.blocks.length === 0){
+      const hint = document.createElement("div");
+      hint.className = "canvas-hint";
+      hint.textContent = "Clique n'importe où pour écrire ici, puis clique ailleurs pour écrire à côté";
+      canvas.appendChild(hint);
+    }
+
+    note.blocks.forEach(b=>canvas.appendChild(makeBlock(note, b)));
+
+    // clic sur le vide = nouveau point de texte à cet endroit
+    canvas.addEventListener("mousedown",(e)=>{
+      if(e.target !== canvas) return;
+      const rect = canvas.getBoundingClientRect();
+
+      // si le clic tombe sur ou tout près d'un texte existant, on y revient
+      const pad = 8;
+      for(const el of canvas.querySelectorAll(".block")){
+        const r = el.getBoundingClientRect();
+        if(e.clientX >= r.left-pad && e.clientX <= r.right+pad &&
+           e.clientY >= r.top-pad && e.clientY <= r.bottom+pad){
+          e.preventDefault();
+          el.querySelector(".editor").focus();
+          return;
+        }
+      }
+
+      // sinon, nouveau point de texte, curseur là où on a cliqué
+      const b = {
+        id: uid(),
+        x: Math.max(0, Math.round(e.clientX - rect.left - 16)),
+        y: Math.max(0, Math.round(e.clientY - rect.top - 14)),
+        w: 260,
+        html: ""
+      };
+      note.blocks.push(b);
+      const hint = canvas.querySelector(".canvas-hint");
+      if(hint) hint.remove();
+      const el = makeBlock(note, b);
+      canvas.appendChild(el);
+      const ed = el.querySelector(".editor");
+      setTimeout(()=>{ ed.focus(); }, 0);
+      touch(note);
+    });
+
+    return canvas;
+  }
+
+  function makeBlock(note, b){
+    const block = document.createElement("div");
+    block.className = "block";
+    block.style.left = b.x + "px";
+    block.style.top = b.y + "px";
+    block.style.width = b.w + "px";
+    block.dataset.id = b.id;
+
+    const grip = document.createElement("div");
+    grip.className = "block-grip";
+    grip.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="7" cy="7" r="1.6"/><circle cx="12" cy="7" r="1.6"/><circle cx="17" cy="7" r="1.6"/><circle cx="7" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="17" cy="12" r="1.6"/></svg>';
+
+    const del = document.createElement("button");
+    del.className = "block-del";
+    del.title = "Supprimer ce texte";
+    del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+    del.addEventListener("mousedown",(e)=>{ e.stopPropagation(); e.preventDefault(); });
+    del.addEventListener("click",(e)=>{
+      e.stopPropagation();
+      note.blocks = note.blocks.filter(x=>x.id!==b.id);
+      block.remove();
+      touch(note);
+    });
+
+    const ed = document.createElement("div");
+    ed.className = "editor";
+    ed.contentEditable = "true";
+    ed.spellcheck = true;
+    ed.setAttribute("data-placeholder", "Écris ici");
+    ed.innerHTML = b.html || "";
+    attachEditorEvents(ed, ()=>{ b.html = ed.innerHTML; touch(note); });
+    ed.addEventListener("blur", ()=>{
+      // un point de texte vide disparait tout seul
+      if(!htmlToText(b.html).trim() && !block.classList.contains("dragging")){
+        note.blocks = note.blocks.filter(x=>x.id!==b.id);
+        block.remove();
+        touch(note);
+      }
+    });
+
+    const resize = document.createElement("div");
+    resize.className = "block-resize";
+
+    block.appendChild(grip);
+    block.appendChild(del);
+    block.appendChild(ed);
+    block.appendChild(resize);
+
+    dragByHandle(grip, block, b, note);
+    resizeByHandle(resize, block, b, note);
+    return block;
+  }
+
+  function dragByHandle(handle, block, b, note){
+    handle.addEventListener("pointerdown",(e)=>{
+      e.preventDefault();
+      handle.setPointerCapture(e.pointerId);
+      block.classList.add("dragging");
+      const sx = e.clientX, sy = e.clientY, ox = b.x, oy = b.y;
+      const move = (ev)=>{
+        b.x = Math.max(0, ox + (ev.clientX - sx));
+        b.y = Math.max(0, oy + (ev.clientY - sy));
+        block.style.left = b.x + "px";
+        block.style.top = b.y + "px";
+      };
+      const up = ()=>{
+        block.classList.remove("dragging");
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        touch(note);
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+    });
+  }
+
+  function resizeByHandle(handle, block, b, note){
+    handle.addEventListener("pointerdown",(e)=>{
+      e.preventDefault(); e.stopPropagation();
+      handle.setPointerCapture(e.pointerId);
+      const sx = e.clientX, ow = b.w;
+      const move = (ev)=>{
+        b.w = Math.max(140, ow + (ev.clientX - sx));
+        block.style.width = b.w + "px";
+      };
+      const up = ()=>{
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        touch(note);
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+    });
+  }
+
+  function buildEditor(note){
+    els.editorWrap.innerHTML = "";
+    const board = note.mode === "board";
+    els.editorWrap.classList.toggle("board", board);
+    document.getElementById("boardBtn").classList.toggle("on", board);
+    return board ? buildBoard(note) : buildDoc(note);
+  }
+
+  function touch(note){
+    note.updated = Date.now();
+    updateStatus(note);
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(()=>{ persist(); renderList(); flagSaved(); }, 400);
+  }
+
+  function openNote(id){
+    const note = notes.find(n=>n.id===id);
+    if(!note) return;
+    currentId = id;
+    showEditor(true);
+    buildEditor(note);
+    renderList();
+    updateStatus(note);
+    if(window.innerWidth <= 640) document.body.classList.add("collapsed");
+    if(note.mode === "doc"){
+      const ed = els.editorWrap.querySelector(".editor");
+      if(ed) ed.focus();
+    }
+  }
+
+  function newNote(){
+    const note = { id:uid(), doc:"", blocks:[], mode:"doc", created:Date.now(), updated:Date.now() };
+    notes.push(note);
+    persist();
+    openNote(note.id);
+  }
+
+  function toggleBoard(){
+    const note = notes.find(n=>n.id===currentId);
+    if(!note) return;
+    if(note.mode === "doc"){
+      // bascule le texte du doc dans un premier point du tableau
+      if(htmlToText(note.doc).trim()){
+        note.blocks = [{ id:uid(), x:60, y:60, w:360, html:note.doc }];
+      }
+      note.mode = "board";
+    } else {
+      // recompose un doc à partir des points de texte (ordre haut vers bas)
+      const ordered = [...note.blocks].sort((a,b)=> a.y - b.y || a.x - b.x);
+      note.doc = ordered.map(b=>b.html).filter(h=>htmlToText(h).trim()).join("<p><br></p>");
+      note.mode = "doc";
+    }
+    persist();
+    buildEditor(note);
+    renderList();
+    if(note.mode === "doc"){
+      const ed = els.editorWrap.querySelector(".editor");
+      if(ed) ed.focus();
+    }
+  }
+
+  function deleteNote(id){
+    const note = notes.find(n=>n.id===id);
+    if(!note) return;
+    if(!confirm("Supprimer cette note ? Cette action est définitive.")) return;
+    notes = notes.filter(n=>n.id!==id);
+    persist();
+    if(currentId === id){
+      currentId = null;
+      if(notes.length){ openNote([...notes].sort((a,b)=>b.updated-a.updated)[0].id); }
+      else { showEditor(false); }
+    }
+    renderList();
+  }
+
+  function updateStatus(note){
+    const txt = noteText(note).trim();
+    const words = txt ? txt.split(/\s+/).length : 0;
+    els.statusText.textContent = words + (words>1?" mots":" mot");
+  }
+
+  function flagSaved(){
+    els.status.classList.add("saved");
+    clearTimeout(els.status._t);
+    els.status._t = setTimeout(()=>els.status.classList.remove("saved"), 1200);
+  }
+
+  // toolbar formatting (agit sur l'éditeur actif)
+  els.fmtGroup.addEventListener("mousedown",(e)=>{
+    const btn = e.target.closest(".fmt");
+    if(!btn || !activeEditor) return;
+    e.preventDefault();
+    activeEditor.focus();
+    if(btn.dataset.cmd){
+      document.execCommand(btn.dataset.cmd, false, null);
+    } else if(btn.dataset.block){
+      const tag = btn.dataset.block;
+      const cur = currentBlock();
+      document.execCommand("formatBlock", false, cur===tag ? "p" : tag);
+    }
+    syncToolbar();
+    activeEditor.dispatchEvent(new Event("input"));
+  });
+
+  function currentBlock(){
+    let node = window.getSelection().anchorNode;
+    while(node && node !== activeEditor && node){
+      if(node.nodeType===1){
+        const t = node.tagName.toLowerCase();
+        if(["h2","h3","blockquote"].includes(t)) return t;
+      }
+      node = node.parentNode;
+    }
+    return "p";
+  }
+  function syncToolbar(){
+    document.querySelectorAll('.fmt[data-cmd]').forEach(b=>{
+      try{ b.classList.toggle("on", document.queryCommandState(b.dataset.cmd)); }catch(e){}
+    });
+    const cur = currentBlock();
+    document.querySelectorAll('.fmt[data-block]').forEach(b=>{
+      b.classList.toggle("on", b.dataset.block===cur);
+    });
+  }
+  document.addEventListener("selectionchange", ()=>{
+    const ae = document.activeElement;
+    if(ae && ae.classList && ae.classList.contains("editor")) syncToolbar();
+  });
+
+  // highlight palette
+  const hlBtn = document.getElementById("hlBtn");
+  const palette = document.getElementById("palette");
+  const hlSwatch = document.getElementById("hlSwatch");
+  let savedRange = null;
+
+  function saveRange(){
+    const sel = window.getSelection();
+    if(sel.rangeCount) savedRange = sel.getRangeAt(0).cloneRange();
+  }
+  function restoreRange(){
+    if(!savedRange) return;
+    const sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(savedRange);
+  }
+  function applyHighlight(color){
+    if(!activeEditor) return;
+    activeEditor.focus();
+    restoreRange();
+    try{ document.execCommand("styleWithCSS", false, true); }catch(e){}
+    if(color==="clear"){
+      document.execCommand("hiliteColor", false, "transparent");
+    } else {
+      document.execCommand("hiliteColor", false, color);
+      hlSwatch.style.background = color;
+    }
+    activeEditor.dispatchEvent(new Event("input"));
+  }
+
+  hlBtn.addEventListener("mousedown",(e)=>{
+    e.preventDefault();
+    saveRange();
+    palette.classList.toggle("open");
+  });
+  palette.addEventListener("mousedown",(e)=>{
+    const sw = e.target.closest(".swatch");
+    if(!sw) return;
+    e.preventDefault();
+    applyHighlight(sw.dataset.color);
+    palette.classList.remove("open");
+  });
+  document.addEventListener("mousedown",(e)=>{
+    if(!e.target.closest(".hl-wrap")) palette.classList.remove("open");
+  });
+
+  document.getElementById("boardBtn").addEventListener("mousedown",(e)=>{
+    e.preventDefault(); toggleBoard();
+  });
+
+  // buttons
+  document.getElementById("newBtn").addEventListener("click", newNote);
+  document.getElementById("welcomeNew").addEventListener("click", newNote);
+  document.getElementById("toggleSide").addEventListener("click", ()=>document.body.classList.toggle("collapsed"));
+  els.search.addEventListener("input", renderList);
+
+  // theme
+  function applyTheme(t){
+    document.documentElement.setAttribute("data-theme", t);
+    els.themeIcon.innerHTML = t==="dark"
+      ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'
+      : '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>';
+    try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+  }
+  document.getElementById("themeBtn").addEventListener("click", ()=>{
+    const cur = document.documentElement.getAttribute("data-theme")==="dark" ? "light":"dark";
+    applyTheme(cur);
+  });
+  (function initTheme(){
+    let t = null;
+    try{ t = localStorage.getItem(THEME_KEY); }catch(e){}
+    if(!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark":"light";
+    applyTheme(t);
+  })();
+
+  // shortcuts
+  document.addEventListener("keydown",(e)=>{
+    const mod = e.metaKey || e.ctrlKey;
+    if(mod && e.key.toLowerCase()==="n"){ e.preventDefault(); newNote(); }
+    if(mod && e.key.toLowerCase()==="b"){ setTimeout(syncToolbar,0); }
+    if(mod && e.key.toLowerCase()==="i"){ setTimeout(syncToolbar,0); }
+    if(mod && e.key.toLowerCase()==="f"){ e.preventDefault(); document.body.classList.remove("collapsed"); els.search.focus(); }
+  });
+
+  // init
+  renderList();
+  if(notes.length){ openNote([...notes].sort((a,b)=>b.updated-a.updated)[0].id); }
+  else { showEditor(false); }
+})();
+</script>
+</body>
+</html>
