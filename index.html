@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#FBFAF8;
@@ -155,6 +156,68 @@
     text-align:center;color:var(--faint);
     font-size:13px;padding:40px 20px;line-height:1.6;
   }
+
+  /* ---------- Auth ---------- */
+  .auth-overlay{
+    position:fixed;inset:0;z-index:200;
+    background:var(--bg);
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;
+  }
+  .auth-card{
+    width:100%;max-width:360px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:18px;
+    box-shadow:var(--shadow);
+    padding:32px 28px;
+    text-align:center;
+  }
+  .auth-brand{
+    font-family:var(--ui);font-weight:700;font-size:22px;letter-spacing:-.02em;
+    display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:8px;
+  }
+  .auth-brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+  .auth-sub{font-family:var(--ui);font-size:13.5px;color:var(--muted);line-height:1.5;margin-bottom:22px}
+  .auth-input{
+    width:100%;font-family:var(--ui);font-size:14px;color:var(--ink);
+    background:var(--bg);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;outline:none;margin-bottom:10px;
+  }
+  .auth-input:focus{border-color:var(--accent)}
+  .auth-btn{
+    width:100%;background:var(--accent);color:#fff;
+    font-family:var(--ui);font-weight:600;font-size:14px;
+    padding:12px;border-radius:10px;transition:filter .12s;
+  }
+  .auth-btn:hover{filter:brightness(1.08)}
+  .auth-btn:disabled{opacity:.6;cursor:default}
+  .auth-msg{font-family:var(--ui);font-size:12.5px;line-height:1.5;margin-top:12px;min-height:1em}
+  .auth-msg.ok{color:#3ba55d}
+  .auth-msg.err{color:var(--danger)}
+  .auth-skip{
+    display:block;margin:18px auto 0;
+    font-family:var(--ui);font-size:12.5px;color:var(--faint);
+    text-decoration:underline;text-underline-offset:2px;
+  }
+  .auth-skip:hover{color:var(--muted)}
+
+  .account-bar{
+    border-top:1px solid var(--line);
+    padding:10px 14px;
+    display:flex;align-items:center;gap:8px;
+    font-family:var(--ui);font-size:12px;color:var(--muted);
+    min-height:44px;
+  }
+  .account-bar .acc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .account-bar .acc-dot.on{background:#3ba55d}
+  .account-bar .acc-dot.off{background:var(--faint)}
+  .account-bar .acc-mail{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .account-bar button{
+    font-family:var(--ui);font-size:12px;color:var(--accent);
+    white-space:nowrap;
+  }
+  .account-bar button:hover{text-decoration:underline}
 
   /* ---------- Folders ---------- */
   .folder{margin-bottom:2px}
@@ -417,6 +480,17 @@
 </head>
 <body class="collapsed">
 
+  <div class="auth-overlay" id="authOverlay" style="display:none">
+    <div class="auth-card">
+      <div class="auth-brand"><span class="dot"></span>Think</div>
+      <p class="auth-sub">Connecte-toi pour synchroniser tes notes sur tous tes appareils.</p>
+      <input class="auth-input" id="authEmail" type="email" placeholder="ton@email.com" autocomplete="email">
+      <button class="auth-btn" id="authSend">Recevoir le lien de connexion</button>
+      <div class="auth-msg" id="authMsg"></div>
+      <button class="auth-skip" id="authSkip">Continuer sans compte (local uniquement)</button>
+    </div>
+  </div>
+
   <aside class="sidebar">
     <div class="side-head">
       <div class="brand"><span class="dot"></span>Think</div>
@@ -432,6 +506,7 @@
       <input id="search" type="text" placeholder="Rechercher">
     </div>
     <div class="note-list" id="noteList"></div>
+    <div class="account-bar" id="accountBar"></div>
   </aside>
 
   <main class="main">
@@ -546,9 +621,11 @@
   }
   function persist(){
     try{ localStorage.setItem(KEY, JSON.stringify(notes)); }catch(e){}
+    scheduleCloudPush();
   }
   function persistFolders(){
     try{ localStorage.setItem(FKEY, JSON.stringify(folders)); }catch(e){}
+    scheduleCloudPush();
   }
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
@@ -725,6 +802,7 @@
     notes.forEach(n=>{ if(n.folderId===id) n.folderId=null; });
     folders = folders.filter(x=>x.id!==id);
     persist(); persistFolders(); renderList();
+    cloudDelete("folders", id);
   }
   function moveNote(noteId, folderId){
     const n = notes.find(x=>x.id===noteId);
@@ -1031,6 +1109,7 @@
     if(!confirm("Supprimer cette note ? Cette action est définitive.")) return;
     notes = notes.filter(n=>n.id!==id);
     persist();
+    cloudDelete("notes", id);
     if(currentId === id){
       currentId = null;
       if(notes.length){ openNote([...notes].sort((a,b)=>b.updated-a.updated)[0].id); }
@@ -1177,10 +1256,166 @@
     if(mod && e.key.toLowerCase()==="f"){ e.preventDefault(); document.body.classList.remove("collapsed"); els.search.focus(); }
   });
 
+  // ---------- Supabase (auth + synchro cloud) ----------
+  const SUPABASE_URL = "https://hmjawhmnfpmwfwjggtej.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_s053alCHzj3f3PeTxbg6nQ_bt5bFL1o";
+  let sb = null, session = null, pushTimer = null, syncing = false;
+
+  const authOverlay = document.getElementById("authOverlay");
+  const authEmail = document.getElementById("authEmail");
+  const authSend = document.getElementById("authSend");
+  const authMsg = document.getElementById("authMsg");
+  const authSkip = document.getElementById("authSkip");
+  const accountBar = document.getElementById("accountBar");
+
+  function noteToRow(n){
+    return { id:n.id, doc:n.doc||"", blocks:n.blocks||[], mode:n.mode||"doc",
+      folder_id:n.folderId||null,
+      created_at:new Date(n.created||Date.now()).toISOString(),
+      updated_at:new Date(n.updated||Date.now()).toISOString() };
+  }
+  function rowToNote(r){
+    return { id:r.id, doc:r.doc||"", blocks:Array.isArray(r.blocks)?r.blocks:[],
+      mode:r.mode||"doc", folderId:r.folder_id||null,
+      created:Date.parse(r.created_at)||Date.now(),
+      updated:Date.parse(r.updated_at)||Date.now() };
+  }
+  function folderToRow(f){
+    return { id:f.id, name:f.name||"", collapsed:!!f.collapsed, updated_at:new Date().toISOString() };
+  }
+
+  function scheduleCloudPush(){
+    if(!sb || !session || syncing) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(pushAll, 800);
+  }
+  async function pushAll(){
+    if(!sb || !session) return;
+    try{
+      setSync(true);
+      if(folders.length) await sb.from("folders").upsert(folders.map(folderToRow));
+      if(notes.length) await sb.from("notes").upsert(notes.map(noteToRow));
+      setSync(false);
+    }catch(e){ setSync(false); }
+  }
+  async function cloudDelete(table, id){
+    if(!sb || !session) return;
+    try{ await sb.from(table).delete().eq("id", id); }catch(e){}
+  }
+
+  function setSync(on){ /* réservé pour un futur indicateur visuel */ }
+
+  async function pullAndMerge(){
+    if(!sb || !session) return;
+    syncing = true;
+    try{
+      const [{data:cf}, {data:cn}] = await Promise.all([
+        sb.from("folders").select("*"),
+        sb.from("notes").select("*")
+      ]);
+      // dossiers: union par id, cloud prioritaire
+      const fMap = {};
+      folders.forEach(f=>fMap[f.id]=f);
+      (cf||[]).forEach(r=>{ fMap[r.id] = { id:r.id, name:r.name||"", collapsed:!!r.collapsed }; });
+      folders = Object.values(fMap);
+
+      // notes: fusion par id, la plus récente gagne
+      const nMap = {};
+      notes.forEach(n=>nMap[n.id]=n);
+      (cn||[]).forEach(r=>{
+        const remote = rowToNote(r);
+        const local = nMap[r.id];
+        if(!local || remote.updated >= local.updated) nMap[r.id] = remote;
+      });
+      notes = Object.values(nMap);
+
+      persistLocalOnly();
+      renderList();
+      if(!currentId && notes.length){
+        openNote([...notes].sort((a,b)=>b.updated-a.updated)[0].id);
+      }
+    }catch(e){}
+    syncing = false;
+    // renvoie les éléments locaux non encore en cloud
+    pushAll();
+  }
+  function persistLocalOnly(){
+    try{ localStorage.setItem(KEY, JSON.stringify(notes)); }catch(e){}
+    try{ localStorage.setItem(FKEY, JSON.stringify(folders)); }catch(e){}
+  }
+
+  function renderAccount(){
+    accountBar.innerHTML = "";
+    if(session && session.user){
+      accountBar.innerHTML =
+        '<span class="acc-dot on"></span><span class="acc-mail"></span><button id="logoutBtn">Déconnexion</button>';
+      accountBar.querySelector(".acc-mail").textContent = session.user.email || "Connecté";
+      accountBar.querySelector("#logoutBtn").addEventListener("click", doLogout);
+    } else {
+      accountBar.innerHTML =
+        '<span class="acc-dot off"></span><span class="acc-mail">Local uniquement</span><button id="loginBtn">Synchroniser</button>';
+      accountBar.querySelector("#loginBtn").addEventListener("click", ()=>{ authOverlay.style.display="flex"; });
+    }
+  }
+
+  async function doLogout(){
+    try{ await sb.auth.signOut(); }catch(e){}
+    session = null;
+    renderAccount();
+    authOverlay.style.display = "flex";
+  }
+
+  async function sendMagicLink(){
+    const email = (authEmail.value||"").trim();
+    if(!email || !email.includes("@")){ authMsg.className="auth-msg err"; authMsg.textContent="Entre une adresse email valide."; return; }
+    if(!sb){ authMsg.className="auth-msg err"; authMsg.textContent="Connexion au serveur impossible."; return; }
+    authSend.disabled = true; authMsg.className="auth-msg"; authMsg.textContent="Envoi...";
+    try{
+      const redirect = location.href.split("#")[0];
+      const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: redirect } });
+      if(error) throw error;
+      authMsg.className="auth-msg ok";
+      authMsg.textContent="Lien envoyé. Ouvre ton email et clique dessus pour te connecter.";
+    }catch(e){
+      authMsg.className="auth-msg err";
+      authMsg.textContent = e.message || "Échec de l'envoi, réessaie.";
+    }
+    authSend.disabled = false;
+  }
+
+  function initCloud(){
+    if(!window.supabase){ renderAccount(); return; }
+    try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }
+    catch(e){ renderAccount(); return; }
+
+    authSend.addEventListener("click", sendMagicLink);
+    authEmail.addEventListener("keydown",(e)=>{ if(e.key==="Enter") sendMagicLink(); });
+    authSkip.addEventListener("click", ()=>{ authOverlay.style.display="none"; });
+
+    sb.auth.getSession().then(({data})=>{
+      session = data.session;
+      renderAccount();
+      if(session){ authOverlay.style.display="none"; pullAndMerge(); }
+      else { authOverlay.style.display="flex"; }
+    });
+
+    sb.auth.onAuthStateChange((event, s)=>{
+      session = s;
+      renderAccount();
+      if(event === "SIGNED_IN" && s){
+        authOverlay.style.display="none";
+        authMsg.textContent=""; authEmail.value="";
+        pullAndMerge();
+      }
+    });
+  }
+
   // init
   renderList();
+  renderAccount();
   if(notes.length){ openNote([...notes].sort((a,b)=>b.updated-a.updated)[0].id); }
   else { showEditor(false); }
+  initCloud();
 })();
 </script>
 </body>
