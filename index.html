@@ -431,6 +431,36 @@
   .block.dragging{box-shadow:0 12px 30px rgba(0,0,0,.16);border-color:var(--accent)}
 
   #boardBtn.on{background:var(--accent-soft);color:var(--accent)}
+
+  /* choix de l'ordre lors de la fusion */
+  .order-bubble{
+    position:absolute;top:-12px;left:-12px;z-index:6;
+    width:24px;height:24px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--ui);font-size:12px;font-weight:700;
+    background:var(--card);border:1.5px solid var(--faint);color:var(--faint);
+    box-shadow:var(--shadow);transition:background .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .order-bubble.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .order-cover{position:absolute;inset:0;z-index:5;cursor:pointer;border-radius:12px}
+  .editor-wrap.ordering .block{cursor:pointer;border-color:var(--line)}
+  .editor-wrap.ordering .block-grip,
+  .editor-wrap.ordering .block-del,
+  .editor-wrap.ordering .block-resize{display:none!important}
+  .merge-bar{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;
+    display:flex;align-items:center;gap:10px;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    box-shadow:var(--shadow);padding:9px 10px 9px 16px;
+    font-family:var(--ui);font-size:13px;color:var(--muted);
+    max-width:calc(100vw - 32px);
+  }
+  .merge-bar b{color:var(--accent);font-weight:700}
+  .merge-bar .mb-btn{padding:8px 15px;border-radius:9px;font-weight:600;font-size:13px}
+  .merge-bar .mb-go{background:var(--accent);color:#fff}
+  .merge-bar .mb-go:hover{filter:brightness(1.08)}
+  .merge-bar .mb-cancel{color:var(--muted)}
+  .merge-bar .mb-cancel:hover{color:var(--ink)}
   .editor{
     width:100%;max-width:720px;
     padding:56px 40px 200px;
@@ -1102,6 +1132,7 @@
   function openNote(id){
     const note = notes.find(n=>n.id===id);
     if(!note) return;
+    if(orderingMode) exitOrdering();
     currentId = id;
     showEditor(true);
     buildEditor(note);
@@ -1122,28 +1153,111 @@
     openNote(note.id);
   }
 
+  let orderingMode = false, orderSeq = [];
+
+  function enterBoard(note){
+    // restaure la disposition précédente si elle existe déjà
+    if(!note.blocks || note.blocks.length===0){
+      note.blocks = htmlToText(note.doc).trim()
+        ? [{ id:uid(), x:60, y:60, w:360, html:note.doc }]
+        : [];
+    }
+    note.mode = "board";
+    persist(); buildEditor(note); renderList();
+  }
+
   function toggleBoard(){
     const note = notes.find(n=>n.id===currentId);
+    if(!note || orderingMode) return;
+    if(note.mode === "doc") enterBoard(note);
+    else startMerge(note);
+  }
+
+  function textBlocks(note){
+    return note.blocks.filter(b=>htmlToText(b.html).trim());
+  }
+  function computedOrder(note){
+    const ids = textBlocks(note).map(b=>b.id);
+    const order = orderSeq.filter(id=>ids.includes(id));
+    [...textBlocks(note)].sort((a,b)=>a.y-b.y||a.x-b.x).forEach(b=>{ if(!order.includes(b.id)) order.push(b.id); });
+    return order;
+  }
+
+  function startMerge(note){
+    const usable = textBlocks(note);
+    if(usable.length <= 1){ mergeToDoc(note, []); return; }
+    orderingMode = true; orderSeq = [];
+    els.editorWrap.classList.add("ordering");
+    const usableIds = new Set(usable.map(b=>b.id));
+    const canvas = els.editorWrap.querySelector(".canvas");
+    canvas.querySelectorAll(".block").forEach(bl=>{
+      if(!usableIds.has(bl.dataset.id)) return;
+      const bub = document.createElement("div"); bub.className = "order-bubble";
+      const cover = document.createElement("div"); cover.className = "order-cover";
+      cover.addEventListener("click",(e)=>{ e.stopPropagation(); toggleOrder(bl.dataset.id); });
+      bl.appendChild(bub); bl.appendChild(cover);
+    });
+    showMergeBar(note);
+    refreshBubbles(); // ordre déjà proposé de haut en bas
+  }
+
+  function toggleOrder(id){
+    const i = orderSeq.indexOf(id);
+    if(i>=0) orderSeq.splice(i,1); else orderSeq.push(id);
+    refreshBubbles();
+  }
+  function refreshBubbles(){
+    const note = notes.find(n=>n.id===currentId);
     if(!note) return;
-    if(note.mode === "doc"){
-      // bascule le texte du doc dans un premier point du tableau
-      if(htmlToText(note.doc).trim()){
-        note.blocks = [{ id:uid(), x:60, y:60, w:360, html:note.doc }];
-      }
-      note.mode = "board";
-    } else {
-      // recompose un doc à partir des points de texte (ordre haut vers bas)
-      const ordered = [...note.blocks].sort((a,b)=> a.y - b.y || a.x - b.x);
-      note.doc = ordered.map(b=>b.html).filter(h=>htmlToText(h).trim()).join("<p><br></p>");
-      note.mode = "doc";
-    }
-    persist();
-    buildEditor(note);
-    renderList();
-    if(note.mode === "doc"){
-      const ed = els.editorWrap.querySelector(".editor");
-      if(ed) ed.focus();
-    }
+    const order = computedOrder(note);
+    const canvas = els.editorWrap.querySelector(".canvas");
+    canvas.querySelectorAll(".block").forEach(bl=>{
+      const bub = bl.querySelector(".order-bubble");
+      if(!bub) return;
+      const pos = order.indexOf(bl.dataset.id);
+      bub.textContent = pos>=0 ? String(pos+1) : "";
+      // "on" = position choisie manuellement, sinon numéro proposé automatiquement
+      bub.classList.toggle("on", orderSeq.includes(bl.dataset.id));
+    });
+  }
+
+  function showMergeBar(note){
+    removeMergeBar();
+    const bar = document.createElement("div");
+    bar.className = "merge-bar"; bar.id = "mergeBar";
+    bar.innerHTML =
+      '<span>Ordre proposé de haut en bas. Clique un texte pour l\'ajuster, tout se renumérote.</span>'+
+      '<button class="mb-btn mb-cancel" id="mbCancel">Annuler</button>'+
+      '<button class="mb-btn mb-go" id="mbGo">Fusionner</button>';
+    document.body.appendChild(bar);
+    document.getElementById("mbCancel").addEventListener("click",()=>cancelMerge());
+    document.getElementById("mbGo").addEventListener("click",()=>{
+      const order = computedOrder(note);
+      exitOrdering();
+      mergeToDoc(note, order);
+    });
+  }
+  function removeMergeBar(){ const b = document.getElementById("mergeBar"); if(b) b.remove(); }
+
+  function exitOrdering(){
+    orderingMode = false;
+    els.editorWrap.classList.remove("ordering");
+    els.editorWrap.querySelectorAll(".order-cover,.order-bubble").forEach(e=>e.remove());
+    removeMergeBar();
+  }
+  function cancelMerge(){ orderSeq = []; exitOrdering(); }
+
+  function mergeToDoc(note, order){
+    const byId = {}; note.blocks.forEach(b=>byId[b.id]=b);
+    const seq = (order && order.length)
+      ? order
+      : [...note.blocks].sort((a,b)=>a.y-b.y||a.x-b.x).map(b=>b.id);
+    note.doc = seq.map(id=>byId[id]).filter(Boolean)
+      .map(b=>b.html).filter(h=>htmlToText(h).trim()).join("<p><br></p>");
+    note.mode = "doc";
+    // on conserve note.blocks en mémoire pour pouvoir revenir en séparé à l'identique
+    persist(); buildEditor(note); renderList();
+    const ed = els.editorWrap.querySelector(".editor"); if(ed) ed.focus();
   }
 
   function deleteNote(id){
