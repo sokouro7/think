@@ -344,6 +344,23 @@
   .swatch.clear svg{width:15px;height:15px}
   .editor mark{border-radius:3px;padding:.02em .12em}
 
+  /* switch couleur du texte : noir / vin */
+  .color-switch{gap:4px}
+  .color-switch .cs-dot{
+    width:12px;height:12px;border-radius:50%;
+    border:1.5px solid transparent;box-sizing:border-box;
+    transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+  }
+  .color-switch .cs-dot.ink{background:var(--ink)}
+  .color-switch .cs-dot.wine{background:#B0405C}
+  .color-switch .cs-dot.active{
+    transform:scale(1.25);
+    border-color:var(--card);
+    box-shadow:0 0 0 1.5px currentColor;
+  }
+  .color-switch .cs-dot.ink.active{color:var(--ink)}
+  .color-switch .cs-dot.wine.active{color:#B0405C}
+
   .spacer{flex:1}
   .status{
     font-family:var(--mono);font-size:11px;color:var(--faint);
@@ -608,7 +625,9 @@
         <button class="fmt" data-cmd="bold" title="Gras (Ctrl/Cmd+B)"><b>B</b></button>
         <button class="fmt" data-cmd="italic" title="Italique (Ctrl/Cmd+I)"><i>I</i></button>
         <button class="fmt" data-cmd="strikeThrough" title="Barré"><span style="text-decoration:line-through">S</span></button>
-        <button class="fmt" id="redBtn" title="Rouge"><span style="color:#E5484D;font-weight:700">A</span></button>
+        <button class="fmt color-switch" id="colorBtn" title="Couleur du texte : noir ou vin">
+          <span class="cs-dot ink active"></span><span class="cs-dot wine"></span>
+        </button>
         <div class="divider"></div>
         <button class="fmt" data-block="h2" title="Titre">H1</button>
         <button class="fmt" data-block="h3" title="Sous-titre">H2</button>
@@ -1358,8 +1377,9 @@
     if(!btn || !activeEditor) return;
     e.preventDefault();
     activeEditor.focus();
-    if(btn.id === "redBtn"){
-      toggleRed();
+    if(btn.id === "colorBtn"){
+      toggleColorSwitch();
+      return;
     } else if(btn.id === "checkBtn"){
       toggleChecklist();
     } else if(btn.dataset.cmd){
@@ -1373,13 +1393,18 @@
     activeEditor.dispatchEvent(new Event("input"));
   });
 
-  const RED = "#E5484D";
-  function toggleRed(){
+  // switch couleur du texte : noir <-> vin
+  const WINE = "#B0405C";
+  const colorBtn = document.getElementById("colorBtn");
+  let writeWine = false;
+  function toggleColorSwitch(){
+    writeWine = !writeWine;
+    colorBtn.querySelector(".cs-dot.ink").classList.toggle("active", !writeWine);
+    colorBtn.querySelector(".cs-dot.wine").classList.toggle("active", writeWine);
     try{ document.execCommand("styleWithCSS", false, true); }catch(e){}
-    let cur = "";
-    try{ cur = document.queryCommandValue("foreColor"); }catch(e){}
-    const isRed = /233,\s*72,\s*77|229,\s*72,\s*77|#e5484d/i.test(cur||"") || cur==="rgb(229, 72, 77)";
-    document.execCommand("foreColor", false, isRed ? (getComputedStyle(activeEditor).color || "#1C1B19") : RED);
+    const color = writeWine ? WINE : (getComputedStyle(activeEditor).color || "#1C1B19");
+    document.execCommand("foreColor", false, color);
+    activeEditor.dispatchEvent(new Event("input"));
   }
   function currentListParent(){
     let node = window.getSelection().anchorNode;
