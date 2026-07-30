@@ -487,7 +487,24 @@
   }
   .editor p{margin:0 0 .2em}
   .editor ul,.editor ol{margin:.3em 0 .6em;padding-left:1.4em}
-  .editor li{margin:.15em 0}
+  .editor li{margin:.28em 0}
+  .editor li.empty{list-style:none;min-height:1.1em}
+  .editor li.spacer{list-style:none;min-height:1.1em}
+  /* checklist */
+  .editor ul.checklist{list-style:none;padding-left:2px}
+  .editor ul.checklist li{position:relative;padding-left:32px;margin:.32em 0;list-style:none}
+  .editor ul.checklist li::before{
+    content:"";position:absolute;left:0;top:.2em;
+    width:19px;height:19px;border:2px solid var(--faint);border-radius:6px;
+    cursor:pointer;box-sizing:border-box;
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;color:#fff;line-height:1;
+    transition:background .12s ease, border-color .12s ease;
+  }
+  .editor ul.checklist li.done::before{
+    content:"\2713";background:var(--accent);border-color:var(--accent);
+  }
+  .editor ul.checklist li.done{color:var(--muted);text-decoration:line-through}
   .editor a{color:var(--accent)}
   .editor blockquote{
     border-left:3px solid var(--accent);
@@ -590,6 +607,8 @@
       <div class="tb-group" id="fmtGroup">
         <button class="fmt" data-cmd="bold" title="Gras (Ctrl/Cmd+B)"><b>B</b></button>
         <button class="fmt" data-cmd="italic" title="Italique (Ctrl/Cmd+I)"><i>I</i></button>
+        <button class="fmt" data-cmd="strikeThrough" title="Barré"><span style="text-decoration:line-through">S</span></button>
+        <button class="fmt" id="redBtn" title="Rouge"><span style="color:#E5484D;font-weight:700">A</span></button>
         <div class="divider"></div>
         <button class="fmt" data-block="h2" title="Titre">H1</button>
         <button class="fmt" data-block="h3" title="Sous-titre">H2</button>
@@ -602,6 +621,9 @@
         </button>
         <button class="fmt" data-cmd="insertOrderedList" title="Liste numérotée">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 14H4l2 2.5V18H4"/></svg>
+        </button>
+        <button class="fmt" id="checkBtn" title="Case à cocher (clique la case pour barrer)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M14 7h7M14 17h7M14 12h4"/><path d="M4.5 15.5 6 17l2.5-3"/></svg>
         </button>
         <div class="divider"></div>
         <div class="hl-wrap">
@@ -939,13 +961,56 @@
   }
 
   function attachEditorEvents(ed, onInput){
-    ed.addEventListener("input", onInput);
+    ed.addEventListener("input", ()=>{ tagEmptyListItems(ed); onInput(); });
     ed.addEventListener("paste",(e)=>{
       e.preventDefault();
       const text = (e.clipboardData||window.clipboardData).getData("text/plain");
       document.execCommand("insertText", false, text);
     });
     ed.addEventListener("focus", ()=>{ activeEditor = ed; });
+    // clic sur la case d'une checklist = coche/décoche
+    ed.addEventListener("click",(e)=>{
+      const li = e.target.closest ? e.target.closest("li") : null;
+      if(li && li.parentElement && li.parentElement.classList.contains("checklist")){
+        const rect = li.getBoundingClientRect();
+        if(e.clientX - rect.left <= 28){
+          e.preventDefault();
+          li.classList.toggle("done");
+          onInput();
+        }
+      }
+    });
+    // aérer une liste: Shift+Entree insere une ligne vide et continue la liste
+    ed.addEventListener("keydown",(e)=>{
+      if(e.key==="Enter" && e.shiftKey){
+        const li = currentListItem(ed);
+        if(li){
+          e.preventDefault();
+          const spacer = document.createElement("li");
+          spacer.className = "spacer"; spacer.innerHTML = "<br>";
+          const next = document.createElement("li"); next.innerHTML = "<br>";
+          li.after(spacer); spacer.after(next);
+          const range = document.createRange();
+          range.setStart(next, 0); range.collapse(true);
+          const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+          onInput();
+        }
+      }
+    });
+  }
+  function currentListItem(scope){
+    let node = window.getSelection().anchorNode;
+    while(node && node !== scope){
+      if(node.nodeType===1 && node.tagName==="LI") return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+  function tagEmptyListItems(ed){
+    ed.querySelectorAll("li").forEach(li=>{
+      const empty = !li.textContent.trim() && !li.querySelector("img");
+      li.classList.toggle("empty", empty && !li.classList.contains("done"));
+    });
   }
 
   // ---------- DOC MODE ----------
@@ -1293,7 +1358,11 @@
     if(!btn || !activeEditor) return;
     e.preventDefault();
     activeEditor.focus();
-    if(btn.dataset.cmd){
+    if(btn.id === "redBtn"){
+      toggleRed();
+    } else if(btn.id === "checkBtn"){
+      toggleChecklist();
+    } else if(btn.dataset.cmd){
       document.execCommand(btn.dataset.cmd, false, null);
     } else if(btn.dataset.block){
       const tag = btn.dataset.block;
@@ -1303,6 +1372,36 @@
     syncToolbar();
     activeEditor.dispatchEvent(new Event("input"));
   });
+
+  const RED = "#E5484D";
+  function toggleRed(){
+    try{ document.execCommand("styleWithCSS", false, true); }catch(e){}
+    let cur = "";
+    try{ cur = document.queryCommandValue("foreColor"); }catch(e){}
+    const isRed = /233,\s*72,\s*77|229,\s*72,\s*77|#e5484d/i.test(cur||"") || cur==="rgb(229, 72, 77)";
+    document.execCommand("foreColor", false, isRed ? (getComputedStyle(activeEditor).color || "#1C1B19") : RED);
+  }
+  function currentListParent(){
+    let node = window.getSelection().anchorNode;
+    while(node && node !== activeEditor){
+      if(node.nodeType===1 && (node.tagName==="UL" || node.tagName==="OL")) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+  function toggleChecklist(){
+    const ul = currentListParent();
+    if(ul && ul.tagName==="UL" && ul.classList.contains("checklist")){
+      // deja une checklist -> repasse en liste normale puis retire
+      ul.classList.remove("checklist");
+      ul.querySelectorAll("li").forEach(li=>li.classList.remove("done"));
+      document.execCommand("insertUnorderedList");
+    } else {
+      document.execCommand("insertUnorderedList");
+      const nul = currentListParent();
+      if(nul && nul.tagName==="UL") nul.classList.add("checklist");
+    }
+  }
 
   function currentBlock(){
     let node = window.getSelection().anchorNode;
