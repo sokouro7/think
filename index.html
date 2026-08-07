@@ -335,9 +335,64 @@
 
   /* ---- mode carte ---- */
   .map-pane{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column}
+  .map-body{flex:1;display:flex;min-height:0}
   .map-scroll{
-    flex:1;overflow:auto;
+    flex:1;min-width:0;overflow:auto;
     background-image:radial-gradient(var(--dot) 1px,transparent 1px);background-size:24px 24px;
+  }
+
+  /* ---- panneau plan ---- */
+  .outline{
+    width:300px;flex-shrink:0;border-left:1px solid var(--line);
+    overflow-y:auto;padding:8px 8px 60px;background:var(--bg);display:none;
+  }
+  .outline.on{display:block}
+  .ol-head{
+    padding:4px 8px 10px;font-size:9.5px;font-weight:700;
+    letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
+  }
+  .ol-row{
+    position:relative;display:flex;align-items:center;gap:5px;
+    padding:6px 4px;border-radius:7px;cursor:pointer;font-size:13px;
+    margin-left:calc(var(--d) * 15px);
+  }
+  .ol-row:hover{background:var(--hover)}
+  .ol-row.sel{background:var(--accent-soft)}
+  .ol-row.dragging{opacity:.4}
+  .ol-rail{width:3px;height:16px;border-radius:2px;background:var(--oc);flex-shrink:0}
+  .ol-caret{
+    width:16px;height:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);transition:transform .15s;
+  }
+  .ol-caret svg{width:11px;height:11px;stroke-width:2.6;fill:none;stroke:currentColor}
+  .ol-caret.open{transform:rotate(90deg)}
+  .ol-caret.leaf{visibility:hidden}
+  .ol-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+  .ol-row.d0 .ol-text{font-weight:600}
+  .ol-text.vide{color:var(--faint);font-style:italic}
+  .ol-count{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--faint)}
+  .ol-add{
+    width:22px;height:22px;border:none;background:transparent;color:var(--faint);
+    border-radius:6px;cursor:pointer;font-size:15px;line-height:1;padding:0;
+    display:none;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .ol-row:hover .ol-add{display:flex}
+  .ol-row:hover .ol-count{display:none}
+  .ol-add:hover{background:var(--hover);color:var(--ink)}
+  /* reperes de depot */
+  .ol-row.drop-before::before,.ol-row.drop-after::after{
+    content:"";position:absolute;left:0;right:4px;height:2px;
+    background:var(--accent);border-radius:2px;
+  }
+  .ol-row.drop-before::before{top:-1px}
+  .ol-row.drop-after::after{bottom:-1px}
+  .ol-row.drop-into{box-shadow:inset 0 0 0 2px var(--accent)}
+  .ol-empty{padding:14px 10px;font-size:12px;color:var(--muted);line-height:1.5}
+  @media(max-width:820px){
+    .outline{
+      position:absolute;top:0;right:0;bottom:0;width:min(290px,84vw);
+      z-index:25;box-shadow:var(--shadow);
+    }
   }
   .map-canvas{position:relative}
   .mlines{position:absolute;top:0;left:0;pointer-events:none}
@@ -349,7 +404,12 @@
   .mnode.root{font-weight:700;background:var(--nc);border-color:var(--nc);color:#fff}
   html[data-theme="dark"] .mnode.root{color:#12110F}
   .mnode.sel{box-shadow:0 0 0 3px var(--accent-soft),var(--shadow)}
-  .mtext{outline:none;white-space:nowrap;min-width:20px;line-height:1.2}
+  /* un span est un element en ligne : min-width y est ignore et un noeud vide
+     ferait 0px de large, sans zone ou poser le curseur. inline-block corrige. */
+  .mtext{
+    display:inline-block;outline:none;white-space:nowrap;line-height:1.2;
+    min-width:58px;min-height:1.25em;
+  }
   .mtext:empty::before{content:"Idée";color:var(--faint)}
   .mnode.root .mtext:empty::before{color:rgba(255,255,255,.65)}
   .mtoggle{
@@ -359,6 +419,19 @@
     display:flex;align-items:center;justify-content:center;
   }
   .mtoggle:hover{background:var(--nc);color:var(--card)}
+  /* bouton visible pour ajouter une sous-idee sans passer par le clavier */
+  .madd{
+    position:absolute;right:-13px;top:50%;transform:translateY(-50%);
+    width:22px;height:22px;border-radius:50%;cursor:pointer;z-index:4;padding:0;
+    border:1.5px solid var(--nc);background:var(--card);color:var(--nc);
+    font-size:16px;font-weight:600;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:opacity .12s,background .12s,color .12s;
+  }
+  .mnode:hover .madd,.mnode.sel .madd{opacity:1}
+  .madd:hover{background:var(--nc);color:var(--card)}
+  .mnode.drop-into{box-shadow:0 0 0 3px var(--accent)}
+  @media (hover:none){ .madd{opacity:1} }
   .map-hint{
     flex-shrink:0;padding:8px 16px;font-size:11px;color:var(--muted);
     border-top:1px solid var(--line);text-align:center;
@@ -370,6 +443,9 @@
     box-shadow:var(--shadow);padding:8px 12px;align-items:center;gap:8px;z-index:30;
   }
   .branch-bar.on{display:flex}
+  /* recentre la barre sur la carte quand le plan occupe la droite */
+  .map-pane.with-outline .branch-bar{margin-left:-150px}
+  @media(max-width:820px){ .map-pane.with-outline .branch-bar{margin-left:0} }
   .bb-label{font-size:11px;color:var(--muted);font-weight:600;margin-right:2px}
   .bb-dot{
     width:20px;height:20px;border-radius:50%;border:2px solid transparent;
@@ -531,6 +607,9 @@
       <button class="tbtn" id="boardBtn" title="Mode tableau">
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="3" width="8" height="10" rx="1.5"/><rect x="3" y="11" width="8" height="10" rx="1.5"/><rect x="13" y="15" width="8" height="6" rx="1.5"/></svg>
       </button>
+      <button class="tbtn" id="outlineBtn" title="Afficher le plan" style="display:none">
+        <svg viewBox="0 0 24 24"><path d="M9 5h12M12 12h9M15 19h6M4.5 5h.01M7.5 12h.01M10.5 19h.01"/></svg>
+      </button>
       <button class="tbtn" id="mapBtn" title="Mode carte mentale">
         <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M7.4 11 15.6 6.9M7.4 13l8.2 4.1"/></svg>
       </button>
@@ -570,10 +649,14 @@
     <div class="board-pane" id="boardPane" style="display:none"></div>
 
     <div class="map-pane" id="mapPane" style="display:none">
-      <div class="map-scroll"><div class="map-canvas" id="mapCanvas"></div></div>
+      <div class="map-body">
+        <div class="map-scroll"><div class="map-canvas" id="mapCanvas"></div></div>
+        <aside class="outline" id="outline"></aside>
+      </div>
       <div class="map-hint">
-        <b>Entrée</b> une idée au même niveau &nbsp;·&nbsp; <b>Tab</b> une sous-idée &nbsp;·&nbsp;
-        <b>Maj+Tab</b> remonter &nbsp;·&nbsp; clique le rond pour replier
+        <b>+</b> une sous-idée &nbsp;·&nbsp; <b>Entrée</b> au même niveau &nbsp;·&nbsp;
+        <b>Tab</b> une sous-idée &nbsp;·&nbsp; <b>Maj+Tab</b> remonter &nbsp;·&nbsp;
+        glisse pour ranger ailleurs
       </div>
       <div class="branch-bar" id="branchBar"></div>
     </div>
@@ -612,6 +695,8 @@
     mapPane: document.getElementById("mapPane"),
     mapCanvas: document.getElementById("mapCanvas"),
     branchBar: document.getElementById("branchBar"),
+    outline: document.getElementById("outline"),
+    outlineBtn: document.getElementById("outlineBtn"),
     title: document.getElementById("titleInput"),
     subtitle: document.getElementById("subtitleInput"),
     backlinks: document.getElementById("backlinks"),
@@ -1103,6 +1188,7 @@
     el.mapPane.style.display = isMap ? "flex" : "none";
     el.boardBtn.classList.toggle("on", isBoard);
     el.mapBtn.classList.toggle("on", isMap);
+    el.outlineBtn.style.display = isMap ? "flex" : "none";
 
     Array.prototype.forEach.call(document.querySelectorAll(".doc-only"), function(b){
       b.style.display = isDoc ? "flex" : "none";
@@ -1635,9 +1721,10 @@
         ? '<button class="mtoggle" data-toggle="'+escapeHtml(p.id)+'" title="Replier ou déplier">'+
             (p.node.collapsed ? p.node.children.length : "&minus;")+'</button>'
         : "";
-      return '<div class="'+cls+'" data-node="'+escapeHtml(p.id)+'" style="'+style+'">'+
+      var add = '<button class="madd" data-add="'+escapeHtml(p.id)+'" title="Ajouter une sous-idée">+</button>';
+      return '<div class="'+cls+'" data-node="'+escapeHtml(p.id)+'" draggable="'+(p.isRoot?"false":"true")+'" style="'+style+'">'+
         '<span class="mtext" contenteditable="true" spellcheck="false" data-edit="'+escapeHtml(p.id)+'">'+
-          escapeHtml(p.node.text)+'</span>'+toggle+'</div>';
+          escapeHtml(p.node.text)+'</span>'+toggle+add+'</div>';
     }).join("");
 
     el.mapCanvas.style.width = layout.width + "px";
@@ -1645,6 +1732,7 @@
     el.mapCanvas.innerHTML = '<svg class="mlines" width="'+layout.width+'" height="'+layout.height+'">'+
       svg.join("")+'</svg>'+html;
     renderBranchBar();
+    renderOutline();
   }
 
   function renderBranchBar(){
@@ -1658,6 +1746,105 @@
         return '<button class="bb-dot'+(branch.color===c.id?" on":"")+'" data-color="'+c.id+
           '" title="'+c.name+'" style="background:'+colorValue(c.id)+'"></button>';
       }).join("");
+  }
+
+  /* ---- panneau plan : la meme arborescence, en texte ---- */
+
+  var outlineOn = false;
+
+  function renderOutline(){
+    if(!outlineOn) return;
+    var note = current();
+    if(!note){ el.outline.innerHTML = ""; return; }
+
+    var rows = [];
+    (function walk(list, depth, colorId){
+      list.forEach(function(n){
+        var col = depth === 0 ? n.color : colorId;
+        var kids = n.children.length;
+        var caret = kids
+          ? '<span class="ol-caret'+(n.collapsed?"":" open")+'" data-olt="'+escapeHtml(n.id)+'">'+
+              '<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>'
+          : '<span class="ol-caret leaf"></span>';
+        rows.push(
+          '<div class="ol-row d'+depth+(n.id===selectedNodeId?" sel":"")+'" draggable="true" '+
+            'data-ol="'+escapeHtml(n.id)+'" style="--d:'+depth+';--oc:'+colorValue(col)+'">'+
+            '<span class="ol-rail"></span>'+caret+
+            '<span class="ol-text'+(n.text.trim()?"":" vide")+'">'+
+              escapeHtml(n.text.trim() || "Idée")+'</span>'+
+            (kids ? '<span class="ol-count">'+kids+'</span>' : "")+
+            '<button class="ol-add" data-oladd="'+escapeHtml(n.id)+'" title="Ajouter une sous-idée">+</button>'+
+          '</div>');
+        if(!n.collapsed) walk(n.children, depth+1, col);
+      });
+    })(note.map.children, 0, null);
+
+    el.outline.innerHTML = '<div class="ol-head">Plan</div>' +
+      (rows.length ? rows.join("") :
+        '<div class="ol-empty">Aucune idée pour l\'instant. Utilise le bouton + sur un nœud.</div>');
+  }
+
+  function setOutline(on){
+    outlineOn = !!on;
+    el.outline.className = "outline" + (outlineOn ? " on" : "");
+    el.mapPane.classList.toggle("with-outline", outlineOn);
+    el.outlineBtn.classList.toggle("on", outlineOn);
+    el.outlineBtn.setAttribute("title", outlineOn ? "Masquer le plan" : "Afficher le plan");
+    try { localStorage.setItem("notes.app.outline", outlineOn ? "1" : "0"); } catch(e){}
+    if(outlineOn) renderOutline();
+  }
+
+  /* ---- deplacer un noeud dans l arborescence ---- */
+
+  // interdit de deposer un noeud dans sa propre descendance
+  function isDescendant(ancestorId, id){
+    var found = findNode(ancestorId);
+    if(!found) return false;
+    var hit = false;
+    (function walk(list){
+      list.forEach(function(n){
+        if(n.id === id) hit = true;
+        walk(n.children);
+      });
+    })(found.node.children);
+    return hit;
+  }
+
+  // position : "before", "after" ou "into"
+  function moveNodeTo(dragId, targetId, position){
+    if(!dragId || !targetId || dragId === targetId) return false;
+    if(isDescendant(dragId, targetId)) return false;
+
+    var src = findNode(dragId);
+    if(!src) return false;
+    src.siblings.splice(src.index, 1);
+
+    var node = src.node;
+    var dst = findNode(targetId);
+    if(!dst){
+      // la cible a disparu, on remet le noeud a sa place
+      src.siblings.splice(src.index, 0, node);
+      return false;
+    }
+
+    if(position === "into"){
+      dst.node.collapsed = false;
+      dst.node.children.push(node);
+    } else {
+      var at = position === "before" ? dst.index : dst.index + 1;
+      dst.siblings.splice(at, 0, node);
+    }
+
+    // une branche de premier niveau doit porter une couleur, une sous-idee non
+    var now = findNode(node.id);
+    if(now && !now.parent){
+      if(!node.color) node.color = BRANCH_COLORS[(current().map.children.length-1) % BRANCH_COLORS.length].id;
+    } else {
+      delete node.color;
+    }
+
+    saveMap(); renderMap(); renderOutline();
+    return true;
   }
 
   function saveMap(){
@@ -2227,6 +2414,8 @@
 
   // carte mentale
   el.mapCanvas.addEventListener("click", function(e){
+    var add = e.target.closest("[data-add]");
+    if(add){ e.preventDefault(); addChild(add.getAttribute("data-add")); return; }
     var tog = e.target.closest("[data-toggle]");
     if(tog){
       e.preventDefault();
@@ -2288,6 +2477,115 @@
     saveMap(); renderMap();
   });
 
+  /* ---- panneau plan ---- */
+  el.outlineBtn.addEventListener("click", function(){ setOutline(!outlineOn); });
+
+  el.outline.addEventListener("click", function(e){
+    var add = e.target.closest("[data-oladd]");
+    if(add){ e.stopPropagation(); addChild(add.getAttribute("data-oladd")); return; }
+    var car = e.target.closest("[data-olt]");
+    if(car){
+      e.stopPropagation();
+      var f = findNode(car.getAttribute("data-olt"));
+      if(f){ f.node.collapsed = !f.node.collapsed; saveMap(); renderMap(); }
+      return;
+    }
+    var row = e.target.closest("[data-ol]");
+    if(row) focusNode(row.getAttribute("data-ol"));
+  });
+
+  /* ---- glisser pour ranger ailleurs ---- */
+  var dragNodeId = null;
+
+  function clearDropMarks(){
+    Array.prototype.forEach.call(
+      document.querySelectorAll(".drop-before,.drop-after,.drop-into"), function(n){
+        n.classList.remove("drop-before","drop-after","drop-into");
+      });
+  }
+
+  // dans le plan : le tiers haut range avant, le tiers bas apres, le milieu dedans
+  function dropPosition(row, e){
+    var r = row.getBoundingClientRect();
+    var p = (e.clientY - r.top) / r.height;
+    if(p < 0.3) return "before";
+    if(p > 0.7) return "after";
+    return "into";
+  }
+
+  el.outline.addEventListener("dragstart", function(e){
+    var row = e.target.closest("[data-ol]");
+    if(!row) return;
+    dragNodeId = row.getAttribute("data-ol");
+    row.classList.add("dragging");
+    try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragNodeId); } catch(err){}
+  });
+  el.outline.addEventListener("dragend", function(){
+    dragNodeId = null;
+    Array.prototype.forEach.call(el.outline.querySelectorAll(".dragging"), function(n){ n.classList.remove("dragging"); });
+    clearDropMarks();
+  });
+  el.outline.addEventListener("dragover", function(e){
+    var row = e.target.closest("[data-ol]");
+    if(!row || !dragNodeId) return;
+    var id = row.getAttribute("data-ol");
+    if(id === dragNodeId || isDescendant(dragNodeId, id)) return;
+    e.preventDefault();
+    clearDropMarks();
+    row.classList.add("drop-" + dropPosition(row, e));
+  });
+  el.outline.addEventListener("dragleave", function(e){
+    var row = e.target.closest("[data-ol]");
+    if(row) row.classList.remove("drop-before","drop-after","drop-into");
+  });
+  el.outline.addEventListener("drop", function(e){
+    var row = e.target.closest("[data-ol]");
+    if(!row || !dragNodeId) return;
+    e.preventDefault();
+    var pos = dropPosition(row, e);
+    clearDropMarks();
+    moveNodeTo(dragNodeId, row.getAttribute("data-ol"), pos);
+    dragNodeId = null;
+  });
+
+  // sur la carte : deposer un noeud sur un autre en fait une sous-idee
+  el.mapCanvas.addEventListener("dragstart", function(e){
+    var host = e.target.closest("[data-node]");
+    if(!host || host.getAttribute("data-node") === "__root__") return;
+    dragNodeId = host.getAttribute("data-node");
+    try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragNodeId); } catch(err){}
+  });
+  el.mapCanvas.addEventListener("dragend", function(){ dragNodeId = null; clearDropMarks(); });
+  el.mapCanvas.addEventListener("dragover", function(e){
+    var host = e.target.closest("[data-node]");
+    if(!host || !dragNodeId) return;
+    var id = host.getAttribute("data-node");
+    if(id === dragNodeId || (id !== "__root__" && isDescendant(dragNodeId, id))) return;
+    e.preventDefault();
+    clearDropMarks();
+    host.classList.add("drop-into");
+  });
+  el.mapCanvas.addEventListener("drop", function(e){
+    var host = e.target.closest("[data-node]");
+    if(!host || !dragNodeId) return;
+    e.preventDefault();
+    clearDropMarks();
+    var id = host.getAttribute("data-node");
+    if(id === "__root__"){
+      // depose sur le titre : le noeud remonte en branche principale
+      var note = current(), src = findNode(dragNodeId);
+      if(note && src){
+        src.siblings.splice(src.index, 1);
+        note.map.children.push(src.node);
+        if(!src.node.color) src.node.color = BRANCH_COLORS[(note.map.children.length-1) % BRANCH_COLORS.length].id;
+        saveMap(); renderMap();
+      }
+    } else {
+      moveNodeTo(dragNodeId, id, "into");
+    }
+    dragNodeId = null;
+  });
+
   document.addEventListener("mousedown", function(e){
     if(ac && !e.target.closest(".ac")) closeAutocomplete();
     if(!e.target.closest(".hl-wrap") && !e.target.closest("#palette")) el.palette.classList.remove("open");
@@ -2311,6 +2609,9 @@
   try { savedTheme = localStorage.getItem(THEME_KEY); } catch(e){}
   applyTheme(savedTheme === "dark" ? "dark" : "light");
   el.hlSwatch.style.background = hlColor;
+  var savedOutline = null;
+  try { savedOutline = localStorage.getItem("notes.app.outline"); } catch(e){}
+  setOutline(savedOutline === "1");
 
   load();
   saveLocalOnly(); // la migration est ecrite tout de suite, pas au premier changement
