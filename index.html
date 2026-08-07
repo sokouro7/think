@@ -781,6 +781,7 @@
       if(typeof n.subtitle !== "string") n.subtitle = "";
       // nouveaute : carte mentale
       if(!n.map || !Array.isArray(n.map.children)) n.map = { children: [] };
+      if(typeof n.map.root !== "string") n.map.root = "";
       normalizeNodes(n.map.children);
       delete n.cols; delete n.ratio; delete n.html;
     });
@@ -1203,7 +1204,10 @@
       buildBoard(note);
     } else {
       closeAutocomplete();
-      if(!note.map.children.length){ note.map.children.push(makeNode("")); persist(); }
+      // valeur de depart reprise du titre, puis independante
+      if(!note.map.root) note.map.root = note.title || "Sans titre";
+      if(!note.map.children.length){ note.map.children.push(makeNode("")); }
+      persist();
       renderMap();
     }
   }
@@ -1643,7 +1647,7 @@
   }
 
   function layoutMap(note){
-    var root = { id:"__root__", text: note.title || "Sans titre",
+    var root = { id:"__root__", text: note.map.root || note.title || "Sans titre",
       children: note.map.children, collapsed:false, isRoot:true };
 
     var widths = [];
@@ -2350,7 +2354,6 @@
     if(!note) return;
     note.title = el.title.value;
     touch(note); renderList();
-    if(note.mode === "map") renderMap();
   });
   el.title.addEventListener("blur", function(){
     var note = current();
@@ -2438,9 +2441,8 @@
     var id = span.getAttribute("data-edit"), note = current();
     if(!note) return;
     if(id === "__root__"){
-      note.title = span.textContent;
-      el.title.value = note.title;
-      touch(note); renderList();
+      note.map.root = span.textContent;
+      touch(note);
       return;
     }
     var found = findNode(id);
